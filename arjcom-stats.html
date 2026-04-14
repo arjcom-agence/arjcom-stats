@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arjcom — Stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-page:#0f0f0f;
+  --bg-card:#1a1a1a;
+  --bg-sec:#242424;
+  --border:#2e2e2e;
+  --border-s:#3a3a3a;
+  --txt:#f0ede8;
+  --txt2:#888480;
+  --txt3:#555250;
+  --sb-bg:#141414;
+  --sb-bdr:#1e1e1e;
+  --sb-txt:#888480;
+  --sb-on-bg:rgba(231,65,31,0.15);
+  --sb-on-txt:#f9a488;
+  --brand:#e7411f;
+  --brand-d:#f05535;
+  --brand-l:rgba(231,65,31,0.12);
+  --brand-m:rgba(231,65,31,0.3);
+  --inp-bg:#2a2a2a;
+  --inp-bdr:#3a3a3a;
+  --inp-txt:#f0ede8;
+  --inp-ph:#555250;
+  --btn-p-bg:#e7411f;
+  --btn-p-txt:#ffffff;
+  --btn-g-bg:#242424;
+  --btn-g-txt:#888480;
+  --btn-g-bdr:#3a3a3a;
+}
+html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif;color:var(--txt)}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ── Sidebar ── */
+.sb{width:220px;min-width:220px;background:var(--sb-bg);border-right:1px solid var(--sb-bdr);display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.sb-logo{padding:18px 16px 16px;border-bottom:1px solid var(--sb-bdr);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sb-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:var(--brand);line-height:1.2}
+.sb-pole{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt3);margin-top:2px}
+.sb-sec{padding:16px 14px 5px;font-family:'Montserrat',sans-serif;font-size:9px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.09em;flex-shrink:0}
+.nav{display:flex;align-items:center;gap:8px;padding:9px 10px;margin:0 6px 2px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--sb-txt);transition:all .15s;user-select:none}
+.nav:hover{background:rgba(255,255,255,0.05);color:var(--txt)}
+.nav.on{background:var(--sb-on-bg);color:var(--sb-on-txt);font-weight:500}
+.nav svg{width:15px;height:15px;flex-shrink:0}
+.nbadge{margin-left:auto;background:var(--brand);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:700}
+.sb-clients{padding:4px 6px;flex:1}
+.cli{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px;user-select:none;transition:background .1s}
+.cli:hover{background:rgba(255,255,255,0.04)}
+.cli.on{background:var(--sb-on-bg)}
+.cli-av{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;font-family:'Montserrat',sans-serif}
+.cli-name{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--sb-txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cli.on .cli-name{color:var(--sb-on-txt);font-weight:500}
+.add-cli{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--txt3);font-size:12px;margin-top:4px;font-family:'DM Sans',sans-serif;transition:color .1s}
+.add-cli:hover{color:var(--brand)}
+.sb-bottom{padding:10px 6px;border-top:1px solid var(--sb-bdr);flex-shrink:0}
+.uav{width:30px;height:30px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;font-family:'Montserrat',sans-serif}
+
+/* ── Main ── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{background:var(--bg-card);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.pill-brand{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;background:var(--brand-l);color:var(--brand-d);font-family:'DM Sans',sans-serif}
+.pill-green{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(59,109,17,0.2);color:#5fcf5f;font-family:'DM Sans',sans-serif}
+
+/* ── Boutons ── */
+.btn-p{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 18px;height:36px;background:var(--btn-p-bg);color:#ffffff;border:1px solid var(--btn-p-bg);border-radius:8px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.btn-p:hover{opacity:.85}
+.btn-p svg{width:13px;height:13px;flex-shrink:0;stroke:#ffffff}
+.btn-g{display:inline-flex;align-items:center;justify-content:center;padding:0 14px;height:36px;background:var(--btn-g-bg);color:var(--btn-g-txt);border:1px solid var(--btn-g-bdr);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .1s}
+.btn-g:hover{background:var(--bg-sec);color:var(--txt)}
+.btn-sm{display:inline-flex;align-items:center;padding:0 12px;height:30px;background:var(--btn-g-bg);color:var(--btn-g-txt);border:1px solid var(--btn-g-bdr);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer}
+
+/* ── Inputs ── */
+.inp{height:38px;padding:0 12px;border:1px solid var(--inp-bdr);border-radius:8px;font-size:13px;background:var(--inp-bg);color:var(--inp-txt);width:100%;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .15s}
+.inp:focus{border-color:var(--brand)}
+.inp::placeholder{color:var(--inp-ph)}
+.inp-sm{height:34px;padding:0 10px;border:1px solid var(--inp-bdr);border-radius:6px;font-size:12px;background:var(--inp-bg);color:var(--inp-txt);font-family:'DM Sans',sans-serif;outline:none}
+.inp-sm:focus{border-color:var(--brand)}
+.inp-sm::placeholder{color:var(--inp-ph)}
+.inp-mono{height:36px;padding:0 12px;border:1px solid var(--inp-bdr);border-radius:8px;font-size:11px;background:var(--inp-bg);color:var(--inp-txt);flex:1;font-family:monospace;outline:none}
+.inp-mono:focus{border-color:var(--brand)}
+
+/* ── Content ── */
+.content{padding:20px 24px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.panel{display:none}.panel.on{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ct{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:var(--txt)}
+.cs{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2)}
+
+/* ── Dashboard ── */
+.ptabs{display:flex;gap:6px;flex-wrap:wrap}
+.pt{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;border:1px solid var(--border);background:var(--bg-sec);color:var(--txt2);transition:all .1s}
+.pt:hover{border-color:var(--border-s);color:var(--txt)}
+.pt.fb{background:#0c2240;border-color:#185fa5;color:#85b7eb;font-weight:500}
+.pt.ig{background:#2a1020;border-color:#72243e;color:#ed93b1;font-weight:500}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-fb{background:#185fa5}.dot-ig{background:#d4537e}
+.mgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+@media(max-width:1100px){.mgrid{grid-template-columns:repeat(3,1fr)}}
+.mc{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px}
+.mc.acc{border-top:2px solid var(--brand)}
+.ml{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.mv{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700;color:var(--txt);line-height:1}
+.mv.r{color:var(--brand)}
+.md{font-size:9px;padding:2px 5px;border-radius:6px;font-weight:600;font-family:'DM Sans',sans-serif}
+.up{background:rgba(59,109,17,0.2);color:#5fcf5f}
+.dn{background:rgba(163,45,45,0.2);color:#f09595}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.r2{grid-template-columns:1fr}}
+.bars{display:flex;align-items:flex-end;gap:4px;height:80px}
+.bw{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.b{width:100%;border-radius:3px 3px 0 0;transition:opacity .2s}
+.b:hover{opacity:.8}
+.bl{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--txt3)}
+.ht{width:100%;border-collapse:collapse;font-family:'DM Sans',sans-serif;font-size:12px}
+.ht th{text-align:left;padding:6px 10px;color:var(--txt2);font-weight:400;border-bottom:1px solid var(--border);white-space:nowrap}
+.ht td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--txt)}
+.ht tr:last-child td{border-bottom:none}
+.ht tr.cur td{background:var(--brand-l)}
+.rate{color:var(--brand);font-weight:500}
+
+/* ── Import ── */
+.import-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.import-grid{grid-template-columns:1fr}}
+.drop{border:1.5px dashed var(--border-s);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;background:var(--bg-card);transition:all .15s;position:relative}
+.drop:hover{border-color:var(--txt2);background:var(--bg-sec)}
+.drop.ok{border-color:#3b6d11;border-style:solid;background:rgba(59,109,17,0.08)}
+.drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.di{width:36px;height:36px;border-radius:10px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center}
+.dl{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:600;color:var(--txt);margin-bottom:5px}
+.ds{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt2)}
+.dok{font-family:'DM Sans',sans-serif;font-size:11px;color:#5fcf5f;margin-top:8px;font-weight:500}
+.pmgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:14px 0}
+@media(max-width:900px){.pmgrid{grid-template-columns:repeat(3,1fr)}}
+.pm{background:var(--bg-sec);border-radius:8px;padding:12px}
+.pml{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt2);margin-bottom:5px}
+.pmv{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:700;color:var(--txt)}
+.pmv.r{color:var(--brand)}
+.abonnes-row{background:var(--brand-l);border:1px solid var(--brand-m);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+
+/* ── Reporting ── */
+.psel-row{display:flex;gap:6px;flex-wrap:wrap}
+.psel{padding:6px 14px;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);cursor:pointer;color:var(--txt2);background:var(--bg-card);transition:all .1s}
+.psel:hover{border-color:var(--border-s);color:var(--txt)}
+.psel.on{background:var(--brand);color:#fff;border-color:var(--brand);font-weight:500}
+.r2g{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.r2g{grid-template-columns:1fr}}
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.cmp{background:var(--bg-sec);border-radius:10px;padding:12px}
+.cp{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt2);margin-bottom:5px}
+.cv{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700;color:var(--txt)}
+.cl{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-top:3px;display:flex;align-items:center;gap:5px}
+.badge-up{font-size:9px;background:rgba(59,109,17,0.2);color:#5fcf5f;padding:2px 5px;border-radius:4px;font-weight:600}
+.badge-dn{font-size:9px;background:rgba(163,45,45,0.2);color:#f09595;padding:2px 5px;border-radius:4px;font-weight:600}
+.ai-box{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.ai-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.ai-ico{width:32px;height:32px;border-radius:8px;background:var(--brand-l);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ai-t{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:var(--txt)}
+.ai-s{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2)}
+.chs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.ch2{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);cursor:pointer;color:var(--txt2);background:var(--bg-sec);transition:all .1s}
+.ch2:hover{border-color:var(--border-s)}
+.wa.on{background:rgba(59,109,17,0.15);border-color:#3b6d11;color:#5fcf5f;font-weight:500}
+.ml2.on{background:#0c2240;border-color:#185fa5;color:#85b7eb;font-weight:500}
+.ctx-box{background:var(--brand-l);border:1px solid var(--brand-m);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.msg-box{background:var(--bg-sec);border-radius:10px;padding:14px;font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.75;color:var(--txt);margin-bottom:12px;white-space:pre-line}
+.msg-placeholder{color:var(--txt3);font-style:italic;font-size:12px}
+.ai-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── Paramètres ── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.settings-grid{grid-template-columns:1fr}}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.info-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);margin-bottom:6px}
+.il{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt2);min-width:110px}
+.iv{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);font-weight:500}
+.cli-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);margin-bottom:8px;background:var(--bg-card);transition:border-color .1s}
+.cli-item:hover{border-color:var(--border-s)}
+.cli-del{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg-sec);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--txt2);flex-shrink:0;transition:all .1s}
+.cli-del:hover{background:rgba(163,45,45,0.2);border-color:#a32d2d;color:#f09595}
+.cli-cfg{display:inline-flex;align-items:center;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-sec);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);transition:all .1s}
+.cli-cfg:hover{color:var(--brand);border-color:var(--brand)}
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.tog-row:last-child{border-bottom:none}
+.tl{font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt)}
+.ts{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-top:2px}
+.tog{width:38px;height:22px;border-radius:11px;cursor:pointer;position:relative;flex-shrink:0;transition:background .2s}
+.tog.on{background:var(--brand)}.tog.off{background:var(--border-s)}
+.tog-t{width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:3px;transition:left .2s}
+.tog.on .tog-t{left:19px}.tog.off .tog-t{left:3px}
+.sheets-ok{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(59,109,17,0.15);border:1px solid rgba(59,109,17,0.4);margin-bottom:12px}
+.sheets-err{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(163,45,45,0.15);border:1px solid rgba(163,45,45,0.4);margin-bottom:12px}
+
+/* ── Modale ── */
+.modal-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center}
+.modal-wrap.show{display:flex}
+.modal{background:var(--bg-card);border:1px solid var(--border-s);border-radius:14px;padding:22px;width:320px;max-width:calc(100vw - 32px)}
+.modal-t{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px}
+.modal-lbl{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:6px;margin-top:12px}
+.plat-row{display:flex;gap:7px;flex-wrap:wrap}
+.plat{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);cursor:pointer;color:var(--txt2);background:var(--bg-sec);transition:all .1s}
+.plat.on-fb{background:#0c2240;border-color:#185fa5;color:#85b7eb;font-weight:500}
+.plat.on-ig{background:#2a1020;border-color:#72243e;color:#ed93b1;font-weight:500}
+.plat.on-lk{background:#0c1a30;border-color:#1a56cc;color:#7baaf7;font-weight:500}
+.ton-row{display:flex;gap:6px;flex-wrap:wrap}
+.ton{padding:5px 12px;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);cursor:pointer;color:var(--txt2);background:var(--bg-sec);transition:all .1s}
+.ton.on{background:var(--brand-l);border-color:var(--brand);color:var(--sb-on-txt);font-weight:500}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #3b6d11;color:#5fcf5f;padding:12px 20px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;z-index:200;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ── Sidebar ── -->
+  <div class="sb">
+    <div class="sb-logo">
+      <svg width="44" height="28" viewBox="0 0 120 70" fill="none">
+        <text x="4" y="56" font-family="Arial Black,sans-serif" font-weight="900" font-size="58" fill="#e7411f">arj</text>
+        <rect x="88" y="4" width="18" height="18" rx="2" fill="#e7411f"/>
+        <text x="89" y="66" font-family="Arial,sans-serif" font-weight="700" font-size="18" fill="#e7411f">com</text>
+      </svg>
+      <div>
+        <div class="sb-name">Arjcom — Stats</div>
+        <div class="sb-pole">Pôle réseaux sociaux</div>
+      </div>
+    </div>
+
+    <div class="sb-sec">Modules</div>
+    <div class="nav on" id="n-dash" onclick="sw('dash',this)">
+      <svg viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1" opacity=".4"/><rect x="1" y="8" width="5" height="5" rx="1" opacity=".4"/><rect x="8" y="8" width="5" height="5" rx="1" opacity=".2"/></svg>
+      Dashboard
+    </div>
+    <div class="nav" id="n-import" onclick="sw('import',this)">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 1v8M4 6l3 3 3-3M2 12h10"/></svg>
+      Import mensuel
+      <span class="nbadge" id="import-badge" style="display:none">!</span>
+    </div>
+    <div class="nav" id="n-report" onclick="sw('report',this)">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 10l3-3 2 2 3-4 2 2"/></svg>
+      Reporting client
+    </div>
+    <div class="nav" id="n-settings" onclick="sw('settings',this)">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="2"/><path d="M7 1v1M7 12v1M1 7h1M12 7h1M2.6 2.6l.7.7M10.7 10.7l.7.7M2.6 11.4l.7-.7M10.7 3.3l.7-.7"/></svg>
+      Paramètres
+    </div>
+
+    <div class="sb-sec">Mes clients</div>
+    <div class="sb-clients" id="clients-list"></div>
+
+    <div class="sb-bottom">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px">
+        <div class="uav" id="user-av">?</div>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)" id="user-name">Non connecté</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt3)">CM · SMO</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div style="font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700;color:var(--txt)" id="tb-t">—</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2)" id="tb-c">Sélectionnez un client</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="pill-brand" id="tb-pill" style="display:none"></div>
+        <button class="btn-p" onclick="sw('import',document.getElementById('n-import'))">
+          <svg viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round"><path d="M6 1v7M3 5l3 3 3-3M1 10h10"/></svg>
+          Importer un mois
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Dashboard -->
+      <div class="panel on" id="p-dash">
+        <div class="ptabs" id="dash-ptabs">
+          <div class="pt fb" onclick="switchPlatform('fb',this)"><div class="dot dot-fb"></div>Facebook</div>
+          <div class="pt" onclick="switchPlatform('ig',this)"><div class="dot dot-ig"></div>Instagram</div>
+        </div>
+        <div class="mgrid" id="dash-metrics">
+          <div class="mc acc"><div class="ml">Posts</div><div class="mv" id="d-posts">—</div></div>
+          <div class="mc"><div class="ml">Abonnés</div><div class="mv" id="d-abonnes">—</div></div>
+          <div class="mc"><div class="ml">Couverture</div><div class="mv" id="d-couverture">—</div></div>
+          <div class="mc"><div class="ml">Impressions</div><div class="mv" id="d-impressions">—</div></div>
+          <div class="mc"><div class="ml">Engagement</div><div class="mv" id="d-engagement">—</div></div>
+          <div class="mc"><div class="ml">Taux d'eng.</div><div class="mv r" id="d-taux">—</div></div>
+        </div>
+        <div class="r2">
+          <div class="card"><div class="ch"><span class="ct">Couverture mensuelle</span><span class="cs">6 derniers mois</span></div><div class="bars" id="bc"></div></div>
+          <div class="card"><div class="ch"><span class="ct">Taux d'engagement</span><span class="cs">6 derniers mois</span></div><div class="bars" id="be"></div></div>
+        </div>
+        <div class="card">
+          <div class="ch"><span class="ct" id="hist-title">Historique — 2026</span><button class="btn-sm" onclick="exportCSV()">Exporter CSV</button></div>
+          <div style="overflow-x:auto">
+            <table class="ht" id="hist-table">
+              <thead><tr><th>Mois</th><th>Posts</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th></tr></thead>
+              <tbody id="hist-body"><tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px">Aucune donnée — importez un mois pour commencer</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import -->
+      <div class="panel" id="p-import">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:14px;font-weight:600;color:var(--txt)" id="import-client-title">Sélectionnez un client</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-top:2px">Glissez vos exports CSV Meta puis envoyez vers Google Sheets</div>
+          </div>
+          <div style="margin-left:auto">
+            <select class="inp" id="import-month-sel" style="width:160px;height:36px">
+              <option value="">— Mois —</option>
+              <option>Janvier 2026</option><option>Février 2026</option><option selected>Mars 2026</option>
+              <option>Avril 2026</option><option>Mai 2026</option><option>Juin 2026</option>
+              <option>Juillet 2026</option><option>Août 2026</option><option>Septembre 2026</option>
+              <option>Octobre 2026</option><option>Novembre 2026</option><option>Décembre 2026</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="import-grid">
+          <div class="drop" id="dz-fb" ondragover="dzOver(event,'fb')" ondragleave="dzLeave('fb')" ondrop="dzDrop(event,'fb')">
+            <input type="file" accept=".csv" onchange="fileChosen(event,'fb')">
+            <div class="di" style="background:rgba(24,95,165,0.15)" id="dz-fb-icon">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#85b7eb" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>
+            </div>
+            <div class="dl">Facebook</div>
+            <div class="ds">Glisser le CSV ou cliquer</div>
+            <div class="dok" id="fb-fname"></div>
+          </div>
+          <div class="drop" id="dz-ig" ondragover="dzOver(event,'ig')" ondragleave="dzLeave('ig')" ondrop="dzDrop(event,'ig')">
+            <input type="file" accept=".csv" onchange="fileChosen(event,'ig')">
+            <div class="di" style="background:rgba(153,53,86,0.15)" id="dz-ig-icon">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#ed93b1" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>
+            </div>
+            <div class="dl">Instagram</div>
+            <div class="ds">Glisser le CSV ou cliquer</div>
+            <div class="dok" id="ig-fname"></div>
+          </div>
+        </div>
+
+        <div class="card" id="preview-card" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div>
+              <div style="font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:var(--txt)" id="preview-title">Données extraites</div>
+              <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-top:2px" id="preview-sub"></div>
+            </div>
+            <div class="pill-green">Prêt à envoyer</div>
+          </div>
+          <div class="pmgrid" id="preview-metrics"></div>
+          <div class="abonnes-row">
+            <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--sb-on-txt);font-weight:500;flex:1">Abonnés ce mois</div>
+            <input class="inp-sm" type="number" id="abonnes-input" placeholder="ex: 11 210" style="width:140px">
+            <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2)">Saisie manuelle</div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn-g" onclick="resetImport()">Réinitialiser</button>
+            <button class="btn-p" onclick="sendToSheets()">
+              <svg viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l8 4-8 4V7l5-1-5-1V2z"/></svg>
+              Envoyer vers Sheets
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reporting -->
+      <div class="panel" id="p-report">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div class="psel-row" id="trimestre-sel">
+            <div class="psel" onclick="selTrimestre(1,this)">T1 2026</div>
+            <div class="psel on" onclick="selTrimestre(2,this)">T2 2026</div>
+            <div class="psel" onclick="selTrimestre(3,this)">T3 2026</div>
+            <div class="psel" onclick="selTrimestre(4,this)">T4 2026</div>
+          </div>
+          <div class="pill-brand" id="trimestre-label">Janv — Mars 2026</div>
+        </div>
+        <div class="r2g">
+          <div class="card">
+            <div class="ch"><span class="ct">Comparatif Facebook</span><span class="cs" id="fb-cmp-period">T2 vs T1 2026</span></div>
+            <div class="cmp2">
+              <div class="cmp"><div class="cp" id="fb-t1-lbl">T1 2026</div><div class="cv" id="fb-t1-couv">—</div><div class="cl">Couverture</div></div>
+              <div class="cmp"><div class="cp" id="fb-t2-lbl">T2 2026</div><div class="cv" id="fb-t2-couv">—</div><div class="cl">Couverture <span class="badge-up" id="fb-couv-delta"></span></div></div>
+            </div>
+            <div class="cmp2">
+              <div class="cmp"><div class="cp" id="fb-t1-lbl2">T1 2026</div><div class="cv" id="fb-t1-eng">—</div><div class="cl">Engagement</div></div>
+              <div class="cmp"><div class="cp" id="fb-t2-lbl2">T2 2026</div><div class="cv" id="fb-t2-eng">—</div><div class="cl">Engagement <span class="badge-up" id="fb-eng-delta"></span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Comparatif Instagram</span><span class="cs" id="ig-cmp-period">T2 vs T1 2026</span></div>
+            <div class="cmp2">
+              <div class="cmp"><div class="cp">T1 2026</div><div class="cv" id="ig-t1-imp">—</div><div class="cl">Impressions</div></div>
+              <div class="cmp"><div class="cp">T2 2026</div><div class="cv" id="ig-t2-imp">—</div><div class="cl">Impressions <span class="badge-up" id="ig-imp-delta"></span></div></div>
+            </div>
+            <div class="cmp2">
+              <div class="cmp"><div class="cp">T1 2026</div><div class="cv" id="ig-t1-eng">—</div><div class="cl">Engagement</div></div>
+              <div class="cmp"><div class="cp">T2 2026</div><div class="cv" id="ig-t2-eng">—</div><div class="cl">Engagement <span class="badge-up" id="ig-eng-delta"></span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="ai-box">
+          <div class="ai-head">
+            <div class="ai-ico">
+              <svg viewBox="0 0 15 15" fill="none" stroke="var(--brand)" stroke-width="1.5" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M5.5 7.5h4M7.5 5.5v4"/></svg>
+            </div>
+            <div>
+              <div class="ai-t">Message client généré par IA</div>
+              <div class="ai-s">Relire avant diffusion</div>
+            </div>
+            <div class="chs">
+              <div class="ch2 wa on" id="ch-wa" onclick="selectChannel('wa')"><div class="dot" style="background:#3b6d11"></div>WhatsApp</div>
+              <div class="ch2 ml2" id="ch-mail" onclick="selectChannel('mail')"><div class="dot" style="background:#185fa5"></div>Mail</div>
+            </div>
+          </div>
+          <div class="ctx-box">
+            <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--sb-on-txt);font-weight:500;margin-bottom:6px">Contexte du trimestre (optionnel)</div>
+            <input class="inp" id="ctx-input" type="text" placeholder="Ex: lancement nouvelle carte, événement terrasse..." style="height:34px;font-size:12px;background:rgba(0,0,0,0.25);border-color:var(--brand-m)">
+          </div>
+          <div class="msg-box" id="msg-output">
+            <span class="msg-placeholder">Cliquez sur "Générer le message" pour créer le message client personnalisé via IA.</span>
+          </div>
+          <div class="ai-actions">
+            <button class="btn-p" onclick="generateMessage()">
+              <svg viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M4.5 6h3M6 4.5v3"/></svg>
+              Générer le message
+            </button>
+            <button class="btn-g" onclick="copyMessage()" id="btn-copy" style="display:none">Copier</button>
+            <button class="btn-g" onclick="generateMessage()" id="btn-regen" style="display:none">Regénérer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paramètres -->
+      <div class="panel" id="p-settings">
+        <div class="settings-grid">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <div class="ct" style="margin-bottom:14px">Gestion des clients</div>
+              <div id="settings-clients-list"></div>
+              <div class="divider"></div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt2)">Nouveau client</div>
+                <input class="inp" id="new-client-inp" type="text" placeholder="Nom du client">
+                <button class="btn-p" style="width:100%;height:38px;justify-content:center" onclick="addClient()">
+                  Créer le client + onglet Sheets
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <div class="ct" style="margin-bottom:12px">Connexion Google Sheets</div>
+              <div id="sheets-status-block">
+                <div class="sheets-err">
+                  <div style="width:9px;height:9px;border-radius:50%;background:#f09595;flex-shrink:0"></div>
+                  <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#f09595;font-weight:500">Non connecté</div>
+                </div>
+                <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:10px">Collez l'ID de votre fichier Google Sheets (visible dans l'URL)</div>
+                <input class="inp" id="sheets-id-inp" type="text" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="margin-bottom:8px">
+                <button class="btn-p" style="width:100%;height:38px;justify-content:center" onclick="connectSheets()">
+                  Se connecter avec Google
+                </button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="ct" style="margin-bottom:6px">Clé API Claude</div>
+              <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt2);margin-bottom:10px">Nécessaire pour la génération des messages clients. Obtenez une clé sur <span style="color:var(--brand)">console.anthropic.com</span></div>
+              <div style="display:flex;gap:8px;margin-bottom:6px">
+                <input class="inp-mono" id="api-key-inp" type="password" placeholder="sk-ant-api03-...">
+                <button class="btn-p" style="height:36px;font-size:11px;padding:0 16px;flex-shrink:0" onclick="saveApiKey()">Enregistrer</button>
+              </div>
+              <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt3)">Clé stockée localement dans votre navigateur · jamais transmise à des tiers</div>
+            </div>
+
+            <div class="card">
+              <div class="ct" style="margin-bottom:10px">Préférences</div>
+              <div class="tog-row">
+                <div><div class="tl">LinkedIn</div><div class="ts">Activer l'import LinkedIn Analytics pour tous les clients</div></div>
+                <div class="tog off" id="tog-li" onclick="tLI()"><div class="tog-t"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modale config client -->
+<div class="modal-wrap" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-t" id="modal-title">Configurer le client</div>
+    <div class="modal-lbl">Plateformes actives</div>
+    <div class="plat-row" id="modal-plats">
+      <div class="plat on-fb" onclick="togglePlat(this,'fb')"><div class="dot dot-fb"></div>Facebook</div>
+      <div class="plat on-ig" onclick="togglePlat(this,'ig')"><div class="dot dot-ig"></div>Instagram</div>
+      <div class="plat" onclick="togglePlat(this,'lk')"><div class="dot" style="background:#7baaf7"></div>LinkedIn</div>
+    </div>
+    <div class="modal-lbl">Ton des messages IA</div>
+    <div class="ton-row" id="modal-tons">
+      <div class="ton on" onclick="selectTon(this)">Chaleureux</div>
+      <div class="ton" onclick="selectTon(this)">Professionnel</div>
+      <div class="ton" onclick="selectTon(this)">Dynamique</div>
+    </div>
+    <div class="modal-lbl">Secteur d'activité</div>
+    <input class="inp" id="modal-secteur" type="text" placeholder="Ex: Restauration, Hôtellerie..." style="margin-top:4px">
+    <div class="modal-actions">
+      <button class="btn-g" onclick="closeModal()">Annuler</button>
+      <button class="btn-p" onclick="saveClientConfig()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── État global ──
+const state = {
+  clients: JSON.parse(localStorage.getItem('arjcom-clients') || '[]'),
+  currentClient: null,
+  currentPlatform: 'fb',
+  fbFile: null, igFile: null,
+  fbData: null, igData: null,
+  apiKey: localStorage.getItem('arjcom-apikey') || '',
+  sheetsId: localStorage.getItem('arjcom-sheetsid') || '',
+  liEnabled: localStorage.getItem('arjcom-li') === '1',
+  modalClient: null,
+  channel: 'wa',
+};
+
+// Clients démo si vide
+if(!state.clients.length){
+  state.clients = [
+    {id:'bu',name:"Brasserie L'Univers",color:'rgba(231,65,31,0.2)',txtColor:'#f9a488',plats:['fb','ig'],ton:'Chaleureux',secteur:'Restauration',data:{fb:[],ig:[]}},
+    {id:'mc',name:'Maison Clément',color:'rgba(15,110,86,0.2)',txtColor:'#5dcaa5',plats:['fb','ig'],ton:'Professionnel',secteur:'Hôtellerie',data:{fb:[],ig:[]}},
+  ];
+  saveClients();
+}
+
+function saveClients(){ localStorage.setItem('arjcom-clients', JSON.stringify(state.clients)); }
+function getClient(){ return state.clients.find(c=>c.id===state.currentClient); }
+
+// ── Rendu sidebar clients ──
+function renderSidebarClients(){
+  const el = document.getElementById('clients-list');
+  el.innerHTML = state.clients.map(c=>`
+    <div class="cli ${c.id===state.currentClient?'on':''}" onclick="selectClient('${c.id}')">
+      <div class="cli-av" style="background:${c.color};color:${c.txtColor}">${c.name.slice(0,2).toUpperCase()}</div>
+      <span class="cli-name">${c.name}</span>
+    </div>
+  `).join('') + `<div class="add-cli" onclick="sw('settings',document.getElementById('n-settings'))">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 1v10M1 6h10"/></svg>
+    Ajouter un client
+  </div>`;
+}
+
+// ── Rendu settings clients ──
+function renderSettingsClients(){
+  const el = document.getElementById('settings-clients-list');
+  el.innerHTML = state.clients.map(c=>`
+    <div class="cli-item">
+      <div class="cli-av" style="background:${c.color};color:${c.txtColor};width:28px;height:28px;border-radius:8px;flex-shrink:0">${c.name.slice(0,2).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)">${c.name}</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt2)">${c.plats.map(p=>p.toUpperCase()).join(' · ')}</div>
+      </div>
+      <button class="cli-cfg" onclick="openModal('${c.id}')">Configurer</button>
+      <button class="cli-del" onclick="deleteClient('${c.id}')">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function selectClient(id){
+  state.currentClient = id;
+  const c = getClient();
+  if(!c) return;
+  document.getElementById('tb-t').textContent = c.name;
+  document.getElementById('tb-c').textContent = 'Dashboard · 2026';
+  const pill = document.getElementById('tb-pill');
+  pill.style.display = '';
+  pill.textContent = 'Mars 2026';
+  document.getElementById('import-client-title').textContent = c.name;
+  renderSidebarClients();
+  renderDashboard();
+}
+
+// ── Navigation ──
+const navCfg = {
+  dash:{t:null,c:'Dashboard · 2026',p:'Mars 2026'},
+  import:{t:null,c:'Import mensuel',p:''},
+  report:{t:null,c:'Reporting client',p:'T2 2026'},
+  settings:{t:'Arjcom — Stats',c:'Paramètres',p:''},
+};
+function sw(name, nav){
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
+  if(nav) nav.classList.add('on');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('p-'+name).classList.add('on');
+  const c = getClient();
+  const cfg = navCfg[name];
+  document.getElementById('tb-t').textContent = cfg.t || (c ? c.name : '—');
+  document.getElementById('tb-c').textContent = cfg.c;
+  const pill = document.getElementById('tb-pill');
+  if(cfg.p){ pill.style.display=''; pill.textContent=cfg.p; }
+  else pill.style.display='none';
+  if(name==='settings'){ renderSettingsClients(); renderSheetsStatus(); }
+  if(name==='report') renderReport();
+}
+
+// ── Dashboard ──
+function switchPlatform(p, el){
+  state.currentPlatform = p;
+  document.querySelectorAll('.pt').forEach(t=>t.className='pt');
+  el.className = 'pt ' + p;
+  document.getElementById('hist-title').textContent = `Historique ${p==='fb'?'Facebook':'Instagram'} — 2026`;
+  renderDashboard();
+}
+
+function renderDashboard(){
+  const c = getClient(); if(!c) return;
+  const rows = c.data[state.currentPlatform] || [];
+  const last = rows[rows.length-1];
+  if(last){
+    document.getElementById('d-posts').textContent = last.posts || '—';
+    document.getElementById('d-abonnes').textContent = last.abonnes ? fmt(last.abonnes) : '—';
+    document.getElementById('d-couverture').textContent = last.couverture ? fmt(last.couverture) : '—';
+    document.getElementById('d-impressions').textContent = last.impressions ? fmt(last.impressions) : '—';
+    document.getElementById('d-engagement').textContent = last.engagement ? fmt(last.engagement) : '—';
+    document.getElementById('d-taux').textContent = last.taux || '—';
+  }
+  renderBars(rows);
+  renderHistTable(rows);
+}
+
+function renderBars(rows){
+  const last6 = rows.slice(-6);
+  const labels = last6.map(r=>r.month.slice(0,3));
+  const couv = last6.map(r=>r.couverture||0);
+  const eng = last6.map(r=>parseFloat((r.taux||'0').replace(',','.').replace('%',''))||0);
+  drawBars('bc', couv, labels, '#e7411f');
+  drawBars('be', eng, labels, '#1D9E75');
+}
+
+function drawBars(id, data, labels, color){
+  const el = document.getElementById(id); if(!el) return;
+  if(!data.length){ el.innerHTML='<div style="color:var(--txt3);font-size:11px;margin:auto">Aucune donnée</div>'; return; }
+  const mx = Math.max(...data,1);
+  el.innerHTML = data.map((v,i)=>{
+    const h = Math.round((v/mx)*72);
+    const last = i===data.length-1;
+    return `<div class="bw"><div class="b" style="height:${h}px;background:${last?color:color+'44'}"></div><span class="bl">${labels[i]||''}</span></div>`;
+  }).join('');
+}
+
+function renderHistTable(rows){
+  const tbody = document.getElementById('hist-body');
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px">Aucune donnée — importez un mois pour commencer</td></tr>';
+    return;
+  }
+  tbody.innerHTML = [...rows].reverse().map((r,i)=>`
+    <tr${i===0?' class="cur"':''}>
+      <td><strong>${r.month}</strong></td>
+      <td>${r.posts||'—'}</td>
+      <td>${r.abonnes?fmt(r.abonnes):'—'}</td>
+      <td>${r.couverture?fmt(r.couverture):'—'}</td>
+      <td>${r.impressions?fmt(r.impressions):'—'}</td>
+      <td>${r.engagement?fmt(r.engagement):'—'}</td>
+      <td>${r.clics?fmt(r.clics):'—'}</td>
+      <td class="rate">${r.taux||'—'}</td>
+    </tr>`).join('');
+}
+
+// ── Import CSV ──
+function dzOver(e,p){ e.preventDefault(); document.getElementById('dz-'+p).style.borderColor='var(--txt2)'; }
+function dzLeave(p){ document.getElementById('dz-'+p).style.borderColor=''; }
+function dzDrop(e,p){ e.preventDefault(); dzLeave(p); const f=e.dataTransfer.files[0]; if(f) setFile(f,p); }
+function fileChosen(e,p){ const f=e.target.files[0]; if(f) setFile(f,p); }
+
+function setFile(f,p){
+  if(p==='fb'){ state.fbFile=f; document.getElementById('fb-fname').textContent=f.name; }
+  else { state.igFile=f; document.getElementById('ig-fname').textContent=f.name; }
+  const dz = document.getElementById('dz-'+p);
+  dz.classList.add('ok');
+  const icon = document.getElementById('dz-'+p+'-icon');
+  icon.style.background = 'rgba(59,109,17,0.2)';
+  icon.innerHTML = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#5fcf5f" stroke-width="1.5" stroke-linecap="round"><path d="M3 8l3 3 7-7"/></svg>';
+  readAndParse(f, p);
+}
+
+function readFile(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsText(f,'utf-8'); }); }
+
+async function readAndParse(f, p){
+  try {
+    const text = await readFile(f);
+    const data = p==='fb' ? extractFB(text) : extractIG(text);
+    if(p==='fb') state.fbData=data; else state.igData=data;
+    showPreview(p, data);
+  } catch(e){ toast('Erreur de lecture du fichier CSV',true); }
+}
+
+function parseMetaCSV(raw){
+  const text = raw.replace(/^\uFEFF/,'');
+  const rows=[]; let i=0, header=null;
+  function parseRow(start){
+    const fields=[]; let cur='', inQ=false, j=start;
+    while(j<text.length){
+      const ch=text[j];
+      if(ch==='"'){if(inQ&&text[j+1]==='"'){cur+='"';j+=2;continue;} inQ=!inQ;j++;continue;}
+      if(!inQ&&ch===','){fields.push(cur);cur='';j++;continue;}
+      if(!inQ&&(ch==='\n'||ch==='\r')){fields.push(cur);while(j<text.length&&(text[j]==='\n'||text[j]==='\r'))j++;return{fields,next:j};}
+      cur+=ch;j++;
+    }
+    if(cur||fields.length)fields.push(cur);
+    return{fields,next:j};
+  }
+  const first=parseRow(0); header=first.fields.map(h=>h.trim()); i=first.next;
+  while(i<text.length){
+    const{fields,next}=parseRow(i); i=next;
+    if(fields.length<2||fields.every(f=>!f.trim()))continue;
+    const obj={}; header.forEach((h,idx)=>obj[h]=(fields[idx]||'').trim()); rows.push(obj);
+  }
+  return{header,rows};
+}
+
+function col(header,candidates){ for(const c of candidates){const f=header.find(h=>h.toLowerCase().includes(c.toLowerCase()));if(f)return f;} return null; }
+
+function extractFB(raw){
+  const{header,rows}=parseMetaCSV(raw);
+  const cCouv=col(header,['Couverture']); const cViews=col(header,['Vues']); const cEng=col(header,['Réactions, commentaires','Réactions,']); const cClics=col(header,['Total des clics']);
+  let couverture=0,impressions=0,engagement=0,clics=0;
+  rows.forEach(r=>{ couverture+=(parseInt(r[cCouv])||0); impressions+=(parseInt(r[cViews])||0); engagement+=(parseInt(r[cEng])||0); clics+=(parseInt(r[cClics])||0); });
+  const posts=rows.length;
+  const taux=couverture>0?((engagement/couverture)*100).toFixed(2).replace('.',',')+'%':'0%';
+  return{posts,couverture,impressions,engagement,clics,taux};
+}
+
+function extractIG(raw){
+  const{header,rows}=parseMetaCSV(raw);
+  const cImp=col(header,['Impressions']); const cCouv=col(header,['Couverture','Reach','Portée']); const cEng=col(header,["J'aime",'Engagement','interactions']); const cClics=col(header,['Clics','clics']);
+  let impressions=0,couverture=0,engagement=0,clics=0,reels=0;
+  rows.forEach(r=>{ impressions+=(parseInt(r[cImp])||0); couverture+=(parseInt(r[cCouv])||0); engagement+=(parseInt(r[cEng])||0); clics+=(parseInt(r[cClics])||0); });
+  const publications=rows.length;
+  const taux=couverture>0?((engagement/couverture)*100).toFixed(0)+'%':'0%';
+  return{publications,reels,impressions,couverture,engagement,clics,taux,posts:publications};
+}
+
+function showPreview(p, data){
+  const card=document.getElementById('preview-card'); card.style.display='';
+  const month=document.getElementById('import-month-sel').value||'Mois non sélectionné';
+  const c=getClient();
+  document.getElementById('preview-title').textContent=`Données extraites — ${p==='fb'?'Facebook':'Instagram'}`;
+  document.getElementById('preview-sub').textContent=`${c?c.name:'Client'} · ${month} · ${data.posts} publications`;
+  const metrics=p==='fb'?[
+    {l:'Posts',v:data.posts},{l:'Couverture',v:fmt(data.couverture)},{l:'Impressions',v:fmt(data.impressions)},
+    {l:'Engagement',v:fmt(data.engagement)},{l:'Clics totaux',v:fmt(data.clics)},{l:"Taux d'eng.",v:data.taux,r:true}
+  ]:[
+    {l:'Publications',v:data.publications},{l:'Couverture',v:fmt(data.couverture)},{l:'Impressions',v:fmt(data.impressions)},
+    {l:'Engagement',v:fmt(data.engagement)},{l:'Clics',v:fmt(data.clics)},{l:"Taux d'eng.",v:data.taux,r:true}
+  ];
+  document.getElementById('preview-metrics').innerHTML=metrics.map(m=>`<div class="pm"><div class="pml">${m.l}</div><div class="pmv${m.r?' r':''}">${m.v}</div></div>`).join('');
+}
+
+function sendToSheets(){
+  const c=getClient(); if(!c){ toast('Sélectionnez un client',true); return; }
+  const month=document.getElementById('import-month-sel').value; if(!month){ toast('Sélectionnez un mois',true); return; }
+  const abonnes=parseInt(document.getElementById('abonnes-input').value)||0;
+  const p=state.fbData?'fb':'ig';
+  const data=state.fbData||state.igData;
+  if(!data){ toast('Aucun fichier importé',true); return; }
+  const entry={month,...data,abonnes};
+  if(!c.data[p]) c.data[p]=[];
+  const idx=c.data[p].findIndex(r=>r.month===month);
+  if(idx>=0) c.data[p][idx]=entry; else c.data[p].push(entry);
+  saveClients();
+  toast(`Données enregistrées — ${c.name} · ${month}`);
+  resetImport();
+  selectClient(c.id);
+}
+
+function resetImport(){
+  state.fbFile=null; state.igFile=null; state.fbData=null; state.igData=null;
+  document.getElementById('preview-card').style.display='none';
+  document.getElementById('fb-fname').textContent='';
+  document.getElementById('ig-fname').textContent='';
+  ['fb','ig'].forEach(p=>{
+    const dz=document.getElementById('dz-'+p); dz.classList.remove('ok'); dz.style.borderColor='';
+    const icon=document.getElementById('dz-'+p+'-icon');
+    icon.style.background=p==='fb'?'rgba(24,95,165,0.15)':'rgba(153,53,86,0.15)';
+    icon.innerHTML=p==='fb'?'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#85b7eb" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>':'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#ed93b1" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>';
+  });
+  document.getElementById('abonnes-input').value='';
+}
+
+// ── Reporting ──
+const triLabels={1:'Janv — Mars',2:'Avr — Juin',3:'Juil — Sept',4:'Oct — Déc'};
+let currentTri=2;
+function selTrimestre(n,el){
+  currentTri=n;
+  document.querySelectorAll('.psel').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('trimestre-label').textContent=`${triLabels[n]} 2026`;
+  renderReport();
+}
+function renderReport(){
+  const c=getClient(); if(!c) return;
+  const fbRows=c.data.fb||[]; const igRows=c.data.ig||[];
+  const months=(t)=>{const m=(t-1)*3;return[m+1,m+2,m+3];};
+  const mNames=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const sumFB=(ms,key)=>fbRows.filter(r=>ms.some(m=>r.month&&r.month.startsWith(mNames[m-1]))).reduce((a,r)=>a+(parseInt(r[key])||0),0);
+  const sumIG=(ms,key)=>igRows.filter(r=>ms.some(m=>r.month&&r.month.startsWith(mNames[m-1]))).reduce((a,r)=>a+(parseInt(r[key])||0),0);
+  const t1=months(currentTri>1?currentTri-1:4); const t2=months(currentTri);
+  document.getElementById('fb-t1-couv').textContent=fmt(sumFB(t1,'couverture'));
+  document.getElementById('fb-t2-couv').textContent=fmt(sumFB(t2,'couverture'));
+  document.getElementById('fb-t1-eng').textContent=fmt(sumFB(t1,'engagement'));
+  document.getElementById('fb-t2-eng').textContent=fmt(sumFB(t2,'engagement'));
+  document.getElementById('ig-t1-imp').textContent=fmt(sumIG(t1,'impressions'));
+  document.getElementById('ig-t2-imp').textContent=fmt(sumIG(t2,'impressions'));
+  document.getElementById('ig-t1-eng').textContent=fmt(sumIG(t1,'engagement'));
+  document.getElementById('ig-t2-eng').textContent=fmt(sumIG(t2,'engagement'));
+  const delta=(a,b)=>{if(!a)return'';const d=Math.round((b-a)/a*100);return d>=0?`+${d}%`:`${d}%`;};
+  const setBadge=(id,a,b)=>{ const el=document.getElementById(id); const d=delta(a,b); el.textContent=d; el.className=d.startsWith('-')?'badge-dn':'badge-up'; };
+  setBadge('fb-couv-delta',sumFB(t1,'couverture'),sumFB(t2,'couverture'));
+  setBadge('fb-eng-delta',sumFB(t1,'engagement'),sumFB(t2,'engagement'));
+  setBadge('ig-imp-delta',sumIG(t1,'impressions'),sumIG(t2,'impressions'));
+  setBadge('ig-eng-delta',sumIG(t1,'engagement'),sumIG(t2,'engagement'));
+}
+
+// ── Génération IA ──
+async function generateMessage(){
+  const apiKey=state.apiKey; if(!apiKey){ toast('Clé API Claude manquante — allez dans Paramètres',true); return; }
+  const c=getClient(); if(!c){ toast('Sélectionnez un client',true); return; }
+  const ctx=document.getElementById('ctx-input').value;
+  const out=document.getElementById('msg-output');
+  out.innerHTML='<span class="msg-placeholder">Génération en cours...</span>';
+  document.getElementById('btn-copy').style.display='none';
+  document.getElementById('btn-regen').style.display='none';
+  const fbRows=c.data.fb||[]; const igRows=c.data.ig||[];
+  const prompt=`Tu es community manager dans une agence de communication. Rédige un message de bilan trimestriel pour le client "${c.name}" (secteur: ${c.secteur||'non précisé'}).
+Ton souhaité: ${c.ton||'Chaleureux'}.
+Canal: ${state.channel==='wa'?'WhatsApp (message court, direct, émojis bienvenus)':'Email (légèrement plus formel, structure claire)'}.
+Données Facebook (derniers mois disponibles): ${JSON.stringify(fbRows.slice(-3))}.
+Données Instagram (derniers mois disponibles): ${JSON.stringify(igRows.slice(-3))}.
+Contexte additionnel du CM: ${ctx||'aucun'}.
+Rédige uniquement le message, sans explication, prêt à être envoyé. Termine par "L'équipe Arjcom".`;
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await res.json();
+    if(data.error){ toast('Erreur API : '+data.error.message,true); out.innerHTML='<span class="msg-placeholder">Erreur — vérifiez votre clé API dans les Paramètres.</span>'; return; }
+    const msg=data.content[0].text;
+    out.textContent=msg;
+    document.getElementById('btn-copy').style.display='';
+    document.getElementById('btn-regen').style.display='';
+  } catch(e){ toast('Erreur réseau',true); out.innerHTML='<span class="msg-placeholder">Erreur de connexion.</span>'; }
+}
+
+function copyMessage(){ navigator.clipboard.writeText(document.getElementById('msg-output').textContent); toast('Message copié !'); }
+function selectChannel(c){ state.channel=c; document.getElementById('ch-wa').className='ch2 wa'+(c==='wa'?' on':''); document.getElementById('ch-mail').className='ch2 ml2'+(c==='mail'?' on':''); }
+
+// ── Paramètres ──
+function saveApiKey(){ state.apiKey=document.getElementById('api-key-inp').value.trim(); localStorage.setItem('arjcom-apikey',state.apiKey); toast('Clé API enregistrée'); }
+function connectSheets(){ state.sheetsId=document.getElementById('sheets-id-inp').value.trim(); localStorage.setItem('arjcom-sheetsid',state.sheetsId); renderSheetsStatus(); toast('Sheets configuré — connexion Google à finaliser'); }
+function renderSheetsStatus(){
+  const el=document.getElementById('sheets-status-block');
+  if(state.sheetsId){ el.innerHTML=`<div class="sheets-ok"><div style="width:9px;height:9px;border-radius:50%;background:#5fcf5f;flex-shrink:0"></div><div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#5fcf5f;font-weight:500">Fichier Sheets configuré</div><div style="font-family:'DM Sans',sans-serif;font-size:11px;color:#5fcf5f;margin-left:auto;overflow:hidden;text-overflow:ellipsis;max-width:160px">${state.sheetsId.slice(0,20)}...</div></div><div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:8px">La connexion OAuth Google sera activée dans la v2.</div>`; }
+  else { el.innerHTML=`<div class="sheets-err"><div style="width:9px;height:9px;border-radius:50%;background:#f09595;flex-shrink:0"></div><div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#f09595;font-weight:500">Non connecté</div></div><div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:10px">Collez l'ID de votre fichier Google Sheets (visible dans l'URL)</div><input class="inp" id="sheets-id-inp" type="text" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="margin-bottom:8px"><button class="btn-p" style="width:100%;height:38px;justify-content:center" onclick="connectSheets()">Se connecter avec Google</button>`; }
+}
+function addClient(){
+  const name=document.getElementById('new-client-inp').value.trim(); if(!name){ toast('Saisissez un nom de client',true); return; }
+  const colors=[['rgba(231,65,31,0.2)','#f9a488'],['rgba(15,110,86,0.2)','#5dcaa5'],['rgba(24,95,165,0.2)','#85b7eb'],['rgba(153,53,86,0.2)','#ed93b1'],['rgba(186,117,23,0.2)','#FAC775'],['rgba(83,74,183,0.2)','#AFA9EC']];
+  const c=colors[state.clients.length%colors.length];
+  state.clients.push({id:'c'+Date.now(),name,color:c[0],txtColor:c[1],plats:['fb','ig'],ton:'Chaleureux',secteur:'',data:{fb:[],ig:[]}});
+  saveClients(); document.getElementById('new-client-inp').value='';
+  renderSidebarClients(); renderSettingsClients();
+  toast(`Client "${name}" créé`);
+}
+function deleteClient(id){
+  if(!confirm('Supprimer ce client ?')) return;
+  state.clients=state.clients.filter(c=>c.id!==id);
+  if(state.currentClient===id) state.currentClient=null;
+  saveClients(); renderSidebarClients(); renderSettingsClients();
+  toast('Client supprimé');
+}
+function tLI(){ state.liEnabled=!state.liEnabled; localStorage.setItem('arjcom-li',state.liEnabled?'1':'0'); document.getElementById('tog-li').className='tog '+(state.liEnabled?'on':'off'); }
+
+// ── Modale config client ──
+function openModal(id){
+  const c=state.clients.find(cl=>cl.id===id); if(!c) return;
+  state.modalClient=id;
+  document.getElementById('modal-title').textContent=`Configurer — ${c.name}`;
+  document.getElementById('modal-secteur').value=c.secteur||'';
+  document.querySelectorAll('#modal-plats .plat').forEach(el=>{
+    const p=el.querySelector('.dot').nextSibling.textContent.trim().toLowerCase().slice(0,2);
+    el.className='plat'+(c.plats.includes(p)?` on-${p}`:'');
+  });
+  document.querySelectorAll('#modal-tons .ton').forEach(el=>{
+    el.className='ton'+(el.textContent.trim()===c.ton?' on':'');
+  });
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('show'); state.modalClient=null; }
+function togglePlat(el,p){
+  const on=el.classList.contains(`on-${p}`);
+  el.className=on?'plat':`plat on-${p}`;
+}
+function selectTon(el){
+  document.querySelectorAll('#modal-tons .ton').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+}
+function saveClientConfig(){
+  const c=state.clients.find(cl=>cl.id===state.modalClient); if(!c){closeModal();return;}
+  const plats=[]; document.querySelectorAll('#modal-plats .plat').forEach(el=>{ const cls=[...el.classList].find(c=>c.startsWith('on-')); if(cls) plats.push(cls.slice(3)); });
+  c.plats=plats;
+  const ton=document.querySelector('#modal-tons .ton.on'); if(ton) c.ton=ton.textContent.trim();
+  c.secteur=document.getElementById('modal-secteur').value.trim();
+  saveClients(); renderSettingsClients(); closeModal();
+  toast('Configuration enregistrée');
+}
+
+// ── Export CSV ──
+function exportCSV(){
+  const c=getClient(); if(!c) return;
+  const rows=c.data[state.currentPlatform]||[];
+  if(!rows.length){ toast('Aucune donnée à exporter',true); return; }
+  const headers=['Mois','Posts','Abonnés','Couverture','Impressions','Engagement','Clics','Taux'];
+  const csv=[headers.join(','),...rows.map(r=>[r.month,r.posts,r.abonnes,r.couverture,r.impressions,r.engagement,r.clics,r.taux].join(','))].join('\n');
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv); a.download=`${c.name}-${state.currentPlatform}.csv`; a.click();
+}
+
+// ── Helpers ──
+function fmt(n){ return Number(n).toLocaleString('fr-FR'); }
+function toast(msg, err=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.style.background=err?'rgba(163,45,45,0.9)':'#1a2e1a';
+  el.style.borderColor=err?'rgba(163,45,45,0.6)':'#3b6d11';
+  el.style.color=err?'#f09595':'#5fcf5f';
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ── Init ──
+if(state.apiKey) document.getElementById('api-key-inp').value=state.apiKey;
+if(state.liEnabled) document.getElementById('tog-li').className='tog on';
+renderSidebarClients();
+if(state.clients.length) selectClient(state.clients[0].id);
+</script>
+</body>
+</html>
