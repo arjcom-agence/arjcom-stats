@@ -1164,7 +1164,10 @@ async function createSheetTab(clientName){
       }
     );
 
-    // 4. Mettre à jour la page Accueil
+    // 4. Appliquer le formatage
+    await formatSheetTab(newSheetId);
+
+    // 5. Mettre à jour la page Accueil
     await updateAccueilSheet();
 
     toast(`Client "${clientName}" créé avec structure complète`);
@@ -1173,6 +1176,134 @@ async function createSheetTab(clientName){
   }
 }
 
+// Formater un onglet client
+async function formatSheetTab(sheetId){
+  const C = {
+    BRAND:   {red:0.906,green:0.255,blue:0.122}, // #E7411F
+    BRAND_L: {red:0.992,green:0.941,blue:0.925}, // #FDF0EC
+    FB_HDR:  {red:0.094,green:0.373,blue:0.647}, // #185FA5
+    FB_BG:   {red:0.902,green:0.945,blue:0.984}, // #E6F1FB
+    FB_TXT:  {red:0.047,green:0.267,blue:0.486}, // #0C447C
+    IG_HDR:  {red:0.600,green:0.208,blue:0.243}, // #993556
+    IG_BG:   {red:0.984,green:0.918,blue:0.941}, // #FBEAF0
+    IG_TXT:  {red:0.447,green:0.141,blue:0.243}, // #72243E
+    LK_HDR:  {red:0.102,green:0.337,blue:0.800}, // #1A56CC
+    LK_BG:   {red:0.910,green:0.941,blue:0.984}, // #E8F0FB
+    LK_TXT:  {red:0.102,green:0.227,blue:0.420}, // #1A3A6B
+    TOT_FB:  {red:0.839,green:0.910,blue:0.969}, // #D6E8F7
+    TOT_IG:  {red:0.957,green:0.753,blue:0.820}, // #F4C0D1
+    TOT_LK:  {red:0.773,green:0.847,blue:0.961}, // #C5D8F5
+    WHITE:   {red:1,green:1,blue:1},
+    ROW_ALT: {red:0.973,green:0.969,blue:0.961}, // #F8F7F5
+    YEAR_BG: {red:0.992,green:0.941,blue:0.925}, // #FDF0EC
+    TXT:     {red:0.102,green:0.102,blue:0.102}, // #1A1A1A
+    TXT2:    {red:0.420,green:0.408,blue:0.376}, // #6B6860
+  };
+
+  function bg(color){ return {backgroundColor:color}; }
+  function fg(color){ return {foregroundColor:color}; }
+  function bold(b=true){ return {bold:b}; }
+  function fontSize(s){ return {fontSize:s}; }
+  function hAlign(a){ return {horizontalAlignment:a}; }
+
+  function cellFmt(rowIdx, colIdx, props){
+    return {
+      repeatCell:{
+        range:{sheetId,startRowIndex:rowIdx,endRowIndex:rowIdx+1,startColumnIndex:colIdx,endColumnIndex:colIdx+1},
+        cell:{userEnteredFormat: Object.assign({},...props)},
+        fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+      }
+    };
+  }
+  function rangeFmt(r1,c1,r2,c2,props){
+    return {
+      repeatCell:{
+        range:{sheetId,startRowIndex:r1,endRowIndex:r2,startColumnIndex:c1,endColumnIndex:c2},
+        cell:{userEnteredFormat:Object.assign({},...props)},
+        fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+      }
+    };
+  }
+  function colWidth(colIdx, pixels){
+    return {updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:colIdx,endIndex:colIdx+1},properties:{pixelSize:pixels},fields:'pixelSize'}};
+  }
+  function rowHeight(rowIdx, pixels){
+    return {updateDimensionProperties:{range:{sheetId,dimension:'ROWS',startIndex:rowIdx,endIndex:rowIdx+1},properties:{pixelSize:pixels},fields:'pixelSize'}};
+  }
+  function mergeCells(r1,c1,r2,c2){
+    return {mergeCells:{range:{sheetId,startRowIndex:r1,endRowIndex:r2,startColumnIndex:c1,endColumnIndex:c2},mergeType:'MERGE_ALL'}};
+  }
+
+  const requests = [];
+
+  // Largeurs colonnes
+  const COL_WIDTHS = [120,90,70,90,90,90,90,80, 20, 120,90,80,70,90,90,90,80, 20, 120,90,80,90,90,90,70,80];
+  COL_WIDTHS.forEach((w,i) => requests.push(colWidth(i,w)));
+
+  // Hauteur ligne 1 (bandeau)
+  requests.push(rowHeight(0, 36));
+
+  // Bandeau client — ligne 1 orange
+  requests.push(mergeCells(0,0,1,26));
+  requests.push(rangeFmt(0,0,1,26,[bg(C.BRAND),{textFormat:{...fg({red:1,green:1,blue:1}),...bold(),...fontSize(14)}},{horizontalAlignment:'LEFT'}]));
+
+  // Styles par année — 3 années
+  const YEAR_ROWS = [2, 19, 36]; // row index 0-based pour chaque année
+  // Structure par année: label(1) + platHeader(1) + colHeader(1) + 12mois + total(1) + spacer(1) = 17 rows
+
+  YEAR_ROWS.forEach((baseRow) => {
+    // Label année
+    requests.push(mergeCells(baseRow,0,baseRow+1,26));
+    requests.push(rangeFmt(baseRow,0,baseRow+1,26,[bg(C.YEAR_BG),{textFormat:{...fg(C.BRAND),...bold(),...fontSize(11)}},{horizontalAlignment:'LEFT'}]));
+    requests.push(rowHeight(baseRow, 22));
+
+    // Labels plateformes FB / IG / LK
+    const platRow = baseRow+1;
+    requests.push(rowHeight(platRow, 16));
+    requests.push(mergeCells(platRow,0,platRow+1,8));
+    requests.push(rangeFmt(platRow,0,platRow+1,8,[bg(C.FB_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),...bold(),...fontSize(8)}},{horizontalAlignment:'CENTER'}]));
+    requests.push(mergeCells(platRow,9,platRow+1,17));
+    requests.push(rangeFmt(platRow,9,platRow+1,17,[bg(C.IG_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),...bold(),...fontSize(8)}},{horizontalAlignment:'CENTER'}]));
+    requests.push(mergeCells(platRow,18,platRow+1,26));
+    requests.push(rangeFmt(platRow,18,platRow+1,26,[bg(C.LK_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),...bold(),...fontSize(8)}},{horizontalAlignment:'CENTER'}]));
+
+    // Headers colonnes
+    const hdrRow = baseRow+2;
+    requests.push(rowHeight(hdrRow, 30));
+    requests.push(rangeFmt(hdrRow,0,hdrRow+1,8,[bg(C.FB_BG),{textFormat:{...fg(C.FB_TXT),...bold(),...fontSize(8)}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(hdrRow,9,hdrRow+1,17,[bg(C.IG_BG),{textFormat:{...fg(C.IG_TXT),...bold(),...fontSize(8)}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(hdrRow,18,hdrRow+1,26,[bg(C.LK_BG),{textFormat:{...fg(C.LK_TXT),...bold(),...fontSize(8)}},{horizontalAlignment:'CENTER'}]));
+
+    // Lignes mois
+    for(let m=0; m<12; m++){
+      const r = baseRow+3+m;
+      const bg_color = m%2===0 ? C.ROW_ALT : C.WHITE;
+      requests.push(rowHeight(r, 18));
+      requests.push(rangeFmt(r,0,r+1,8,[bg(bg_color),{textFormat:{...fg(C.TXT),...fontSize(9)}}]));
+      requests.push(rangeFmt(r,1,r+1,8,[bg(bg_color),{textFormat:{...fg(C.TXT),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+      // Taux FB en orange
+      requests.push(rangeFmt(r,7,r+1,8,[bg(bg_color),{textFormat:{...fg(C.BRAND),...bold(),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+      requests.push(rangeFmt(r,9,r+1,17,[bg(bg_color),{textFormat:{...fg(C.TXT),...fontSize(9)}}]));
+      requests.push(rangeFmt(r,10,r+1,17,[bg(bg_color),{textFormat:{...fg(C.TXT),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+      requests.push(rangeFmt(r,16,r+1,17,[bg(bg_color),{textFormat:{...fg(C.BRAND),...bold(),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+      requests.push(rangeFmt(r,18,r+1,26,[bg(bg_color),{textFormat:{...fg(C.TXT),...fontSize(9)}}]));
+      requests.push(rangeFmt(r,19,r+1,26,[bg(bg_color),{textFormat:{...fg(C.TXT),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+      requests.push(rangeFmt(r,25,r+1,26,[bg(bg_color),{textFormat:{...fg(C.BRAND),...bold(),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+    }
+
+    // Ligne totaux
+    const totRow = baseRow+15;
+    requests.push(rowHeight(totRow, 20));
+    requests.push(rangeFmt(totRow,0,totRow+1,8,[bg(C.TOT_FB),{textFormat:{...fg(C.FB_TXT),...bold(),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(totRow,9,totRow+1,17,[bg(C.TOT_IG),{textFormat:{...fg(C.IG_TXT),...bold(),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(totRow,18,totRow+1,26,[bg(C.TOT_LK),{textFormat:{...fg(C.LK_TXT),...bold(),...fontSize(9)}},{horizontalAlignment:'CENTER'}]));
+  });
+
+  // Envoyer toutes les requêtes de formatage
+  await sheetsRequest('POST', ':batchUpdate', { requests });
+}
+
+// Mettre à jour la page Accueil du Sheets
 // Mettre à jour la page Accueil du Sheets
 async function updateAccueilSheet(){
   try {
