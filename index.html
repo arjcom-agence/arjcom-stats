@@ -1120,15 +1120,80 @@ async function loadClientDataFromSheets(clientName){
   }
 }
 
-// Créer un nouvel onglet dans le Sheets
+// Créer un nouvel onglet dans le Sheets avec toute la structure
 async function createSheetTab(clientName){
   try {
-    await sheetsRequest('POST', ':batchUpdate', {
-      requests: [{ addSheet: { properties: { title: clientName.slice(0,31) } } }]
+    const safe = clientName.slice(0,31);
+
+    // 1. Créer l'onglet vide
+    const addRes = await sheetsRequest('POST', ':batchUpdate', {
+      requests: [{ addSheet: { properties: { title: safe } } }]
     });
-    toast(`Onglet "${clientName}" créé dans Sheets`);
+    const newSheetId = addRes.replies[0].addSheet.properties.sheetId;
+
+    // 2. Construire toutes les données de structure
+    const MOIS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+    const YEARS = [2026, 2025, 2024];
+    const FB_HDR = ["Mois","Abonnés","Posts","Couverture","Impressions","Engagement","Clics totaux","Taux d'eng."];
+    const IG_HDR = ["Mois","Communauté","Publications","Réels","Couverture","Impressions","Engagement","Taux d'eng."];
+    const LK_HDR = ["Mois","Abonnés","Publications","Impressions","Couverture","Engagement","Clics","Taux d'eng."];
+
+    const values = [];
+    // Bandeau client
+    values.push([clientName.toUpperCase()]);
+    values.push([]); // spacer
+
+    for(const year of YEARS){
+      values.push([String(year)]); // label année
+      values.push(["FACEBOOK","","","","","","","","","INSTAGRAM","","","","","","","","","LINKEDIN"]); // labels plateformes
+      values.push([...FB_HDR,"", ...IG_HDR,"", ...LK_HDR]); // headers colonnes
+      for(const mois of MOIS){
+        values.push([mois,"","","","","","","","", mois,"","","","","","","","", mois,"","","","","","",""]);
+      }
+      values.push(["Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel"]); // totaux
+      values.push([]); // spacer
+    }
+
+    // 3. Écrire toute la structure en une fois
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+"!A1")}?valueInputOption=USER_ENTERED`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values })
+      }
+    );
+
+    // 4. Mettre à jour la page Accueil
+    await updateAccueilSheet();
+
+    toast(`Client "${clientName}" créé avec structure complète`);
   } catch(e){
     toast('Erreur création onglet : ' + e.message, true);
+  }
+}
+
+// Mettre à jour la page Accueil du Sheets
+async function updateAccueilSheet(){
+  try {
+    const values = [
+      ["Arjcom — Stats · Reporting mensuel SMO"],
+      [],
+      ["Client","Facebook","Instagram","LinkedIn","Onglet"]
+    ];
+    state.clients.forEach(c => {
+      values.push([c.name, "✓ FB", "✓ IG", c.plats.includes('lk') ? "✓ LK" : "— LK", c.name]);
+    });
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent("Accueil!A1")}?valueInputOption=USER_ENTERED`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values })
+      }
+    );
+  } catch(e){
+    console.error('Erreur mise à jour Accueil:', e.message);
   }
 }
 
@@ -1259,8 +1324,12 @@ async function deleteClient(id){
   state.clients=state.clients.filter(cl=>cl.id!==id);
   if(state.currentClient===id) state.currentClient=null;
   saveClients(); renderSidebarClients(); renderSettingsClients();
-  if(c && isTokenValid()) await deleteSheetTab(c.name);
-  else toast('Client supprimé');
+  if(c && isTokenValid()){
+    await deleteSheetTab(c.name);
+    await updateAccueilSheet();
+  } else {
+    toast('Client supprimé');
+  }
 }
 function tLI(){ state.liEnabled=!state.liEnabled; localStorage.setItem('arjcom-li',state.liEnabled?'1':'0'); document.getElementById('tog-li').className='tog '+(state.liEnabled?'on':'off'); }
 
