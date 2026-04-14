@@ -549,7 +549,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 <script>
 // ── Configuration Google ──
 const GOOGLE_CLIENT_ID = '949026014926-eqp3e71vf0ailt36jktaobs728um0ash.apps.googleusercontent.com';
-const SHEETS_ID = '1TpZSg42duWHhTX-iJzfG4n1iqqccrQaL';
+const SHEETS_ID = '1D75ZXx2TsTUtHL18s5c_57d8HiWhJMG10nPZ378JV5M';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 // ── État global ──
@@ -1036,37 +1036,38 @@ async function sheetsRequest(method, endpoint, body){
 // Charger les clients depuis les onglets du Sheets
 async function loadClientsFromSheets(){
   try {
-    const data = await sheetsRequest('GET', '?includeGridData=false');
+    // Utiliser l'endpoint correct pour lire les métadonnées
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`,
+      { headers: { 'Authorization': `Bearer ${googleAccessToken}` } }
+    );
+    if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||'Erreur'); }
+    const data = await res.json();
     const IGNORED = ['Accueil'];
     const colors = [
       ['rgba(231,65,31,0.2)','#f9a488'],['rgba(15,110,86,0.2)','#5dcaa5'],
       ['rgba(24,95,165,0.2)','#85b7eb'],['rgba(153,53,86,0.2)','#ed93b1'],
       ['rgba(186,117,23,0.2)','#FAC775'],['rgba(83,74,183,0.2)','#AFA9EC']
     ];
-    const sheets = (data.sheets || []).map(s => s.properties.title).filter(t => !IGNORED.includes(t));
-    // Garder les configs locales existantes (ton, secteur, plats)
+    const sheets = (data.sheets||[]).map(s=>s.properties.title).filter(t=>!IGNORED.includes(t));
     const existingMap = {};
-    state.clients.forEach(c => existingMap[c.name] = c);
-    state.clients = sheets.map((name, i) => {
+    state.clients.forEach(c=>existingMap[c.name]=c);
+    state.clients = sheets.map((name,i)=>{
       const existing = existingMap[name];
-      const col = colors[i % colors.length];
+      const col = colors[i%colors.length];
       return existing || {
-        id: 'c' + Date.now() + i,
-        name,
-        color: col[0],
-        txtColor: col[1],
-        plats: ['fb','ig'],
-        ton: 'Chaleureux',
-        secteur: '',
-        data: { fb:[], ig:[], lk:[] }
+        id:'c'+Date.now()+i, name,
+        color:col[0], txtColor:col[1],
+        plats:['fb','ig'], ton:'Chaleureux', secteur:'',
+        data:{fb:[],ig:[],lk:[]}
       };
     });
     saveClients();
     renderSidebarClients();
     if(state.clients.length) selectClient(state.clients[0].id);
-    toast(`${sheets.length} client(s) chargé(s) depuis Sheets`);
+    toast(`${sheets.length} client(s) chargé(s)`);
   } catch(e){
-    toast('Erreur chargement clients : ' + e.message, true);
+    toast('Erreur chargement : ' + e.message, true);
   }
 }
 
@@ -1134,7 +1135,8 @@ async function createSheetTab(clientName){
 // Supprimer un onglet du Sheets
 async function deleteSheetTab(clientName){
   try {
-    const data = await sheetsRequest('GET', '?includeGridData=false');
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`, { headers: {'Authorization':`Bearer ${googleAccessToken}`} });
+    const data = await res.json();
     const sheet = data.sheets.find(s => s.properties.title === clientName.slice(0,31));
     if(!sheet){ return; }
     await sheetsRequest('POST', ':batchUpdate', {
