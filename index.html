@@ -603,7 +603,7 @@ function renderSettingsClients(){
   `).join('');
 }
 
-function selectClient(id){
+async function selectClient(id){
   state.currentClient = id;
   const c = getClient();
   if(!c) return;
@@ -614,6 +614,12 @@ function selectClient(id){
   pill.textContent = 'Mars 2026';
   document.getElementById('import-client-title').textContent = c.name;
   renderSidebarClients();
+  // Charger les données depuis Sheets si connecté
+  if(isTokenValid()){
+    const data = await loadClientDataFromSheets(c.name);
+    c.data.fb = data.fb; c.data.ig = data.ig;
+    saveClients();
+  }
   renderDashboard();
   updateImportZones();
 }
@@ -945,7 +951,7 @@ function selectChannel(c){ state.channel=c; document.getElementById('ch-wa').cla
 
 // ── Paramètres ──
 function saveApiKey(){ state.apiKey=document.getElementById('api-key-inp').value.trim(); localStorage.setItem('arjcom-apikey',state.apiKey); toast('Clé API enregistrée'); }
-// ── Google OAuth ──
+// ── Google OAuth + Sheets bidirectionnel ──
 let googleAccessToken = localStorage.getItem('arjcom-gtoken') || '';
 let tokenExpiry = parseInt(localStorage.getItem('arjcom-gtoken-expiry') || '0');
 
@@ -957,30 +963,33 @@ function connectSheets(){
   const client = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: SCOPES,
-    callback: (resp) => {
+    callback: async (resp) => {
       if(resp.error){ toast('Erreur de connexion Google : ' + resp.error, true); return; }
       googleAccessToken = resp.access_token;
       tokenExpiry = Date.now() + (resp.expires_in * 1000);
       localStorage.setItem('arjcom-gtoken', googleAccessToken);
       localStorage.setItem('arjcom-gtoken-expiry', tokenExpiry.toString());
-      toast('Connecté à Google Sheets !');
-      renderSheetsStatus();
-      // Supprimer le CTA et charger les clients
+      toast('Connecté — chargement des clients...');
       const cta = document.getElementById('google-cta-banner');
       if(cta) cta.remove();
-      if(state.clients.length) selectClient(state.clients[0].id);
+      await loadClientsFromSheets();
+      renderSheetsStatus();
     }
   });
   client.requestAccessToken();
 }
 
 function disconnectSheets(){
-  google.accounts.oauth2.revoke(googleAccessToken, () => {});
+  if(typeof google !== 'undefined') google.accounts.oauth2.revoke(googleAccessToken, ()=>{});
   googleAccessToken = '';
   localStorage.removeItem('arjcom-gtoken');
   localStorage.removeItem('arjcom-gtoken-expiry');
-  toast('Déconnecté de Google Sheets');
+  state.clients = [];
+  state.currentClient = null;
+  saveClients();
+  renderSidebarClients();
   renderSheetsStatus();
+  toast('Déconnecté de Google Sheets');
 }
 
 function renderSheetsStatus(){
@@ -991,10 +1000,10 @@ function renderSheetsStatus(){
       <div class="sheets-ok">
         <div style="width:9px;height:9px;border-radius:50%;background:#5fcf5f;flex-shrink:0"></div>
         <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#5fcf5f;font-weight:500">Connecté à Google Sheets</div>
-        <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:#5fcf5f;margin-left:auto">${state.currentClient ? getClient()?.name || '' : 'Prêt'}</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:#5fcf5f;margin-left:auto">${state.clients.length} client(s)</div>
       </div>
       <div class="info-row"><span class="il">Fichier Sheets</span><span class="iv">Arjcom_Stats_Final</span></div>
-      <div class="info-row"><span class="il">Statut</span><span class="iv" style="color:#5fcf5f">Actif</span></div>
+      <div class="info-row"><span class="il">Clients chargés</span><span class="iv">${state.clients.length}</span></div>
       <button class="btn-g" style="width:100%;height:36px;justify-content:center;margin-top:8px" onclick="disconnectSheets()">Se déconnecter</button>`;
   } else {
     el.innerHTML = `
@@ -1003,11 +1012,137 @@ function renderSheetsStatus(){
         <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#f09595;font-weight:500">Non connecté</div>
       </div>
       <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:12px">
-        Connectez-vous avec votre compte Google agence pour synchroniser les données avec le fichier Sheets partagé.
+        Connectez-vous avec votre compte Google agence pour synchroniser les données.
       </div>
       <button class="btn-p" style="width:100%;height:38px;justify-content:center" onclick="connectSheets()">
         Se connecter avec Google
       </button>`;
+  }
+}
+
+// ── Lecture du Sheets ──
+async function sheetsRequest(method, endpoint, body){
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}${endpoint}`;
+  const opts = {
+    method,
+    headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' }
+  };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if(!res.ok){ const e = await res.json(); throw new Error(e.error?.message || 'Erreur Sheets'); }
+  return res.json();
+}
+
+// Charger les clients depuis les onglets du Sheets
+async function loadClientsFromSheets(){
+  try {
+    const data = await sheetsRequest('GET', '?fields=sheets.properties.title');
+    const IGNORED = ['Accueil'];
+    const colors = [
+      ['rgba(231,65,31,0.2)','#f9a488'],['rgba(15,110,86,0.2)','#5dcaa5'],
+      ['rgba(24,95,165,0.2)','#85b7eb'],['rgba(153,53,86,0.2)','#ed93b1'],
+      ['rgba(186,117,23,0.2)','#FAC775'],['rgba(83,74,183,0.2)','#AFA9EC']
+    ];
+    const sheets = (data.sheets || []).map(s => s.properties.title).filter(t => !IGNORED.includes(t));
+    // Garder les configs locales existantes (ton, secteur, plats)
+    const existingMap = {};
+    state.clients.forEach(c => existingMap[c.name] = c);
+    state.clients = sheets.map((name, i) => {
+      const existing = existingMap[name];
+      const col = colors[i % colors.length];
+      return existing || {
+        id: 'c' + Date.now() + i,
+        name,
+        color: col[0],
+        txtColor: col[1],
+        plats: ['fb','ig'],
+        ton: 'Chaleureux',
+        secteur: '',
+        data: { fb:[], ig:[], lk:[] }
+      };
+    });
+    saveClients();
+    renderSidebarClients();
+    if(state.clients.length) selectClient(state.clients[0].id);
+    toast(`${sheets.length} client(s) chargé(s) depuis Sheets`);
+  } catch(e){
+    toast('Erreur chargement clients : ' + e.message, true);
+  }
+}
+
+// Lire les données d'un client depuis le Sheets
+async function loadClientDataFromSheets(clientName){
+  const MOIS_LIST = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const YEARS_LIST = [2026, 2025, 2024];
+  const safe = clientName.length > 31 ? clientName.slice(0,31) : clientName;
+  try {
+    // Lire FB (A:H) et IG (J:Q) pour toutes les années
+    const rangeFB = `'${safe}'!A1:H200`;
+    const rangeIG = `'${safe}'!J1:Q200`;
+    const [fbRes, igRes] = await Promise.all([
+      sheetsRequest('GET', `/values/${encodeURIComponent(rangeFB)}`),
+      sheetsRequest('GET', `/values/${encodeURIComponent(rangeIG)}`)
+    ]);
+    const fbRows = []; const igRows = [];
+    const parseFB = (rows) => {
+      (rows || []).forEach(r => {
+        if(!r[0] || !MOIS_LIST.some(m => r[0].startsWith(m))) return;
+        if(!r[2] && !r[3]) return; // ligne vide
+        fbRows.push({
+          month: r[0], abonnes: parseInt(r[1])||0, posts: parseInt(r[2])||0,
+          couverture: parseInt(r[3])||0, impressions: parseInt(r[4])||0,
+          engagement: parseInt(r[5])||0, clics: parseInt(r[6])||0,
+          taux: r[7] || ''
+        });
+      });
+    };
+    const parseIG = (rows) => {
+      (rows || []).forEach(r => {
+        if(!r[0] || !MOIS_LIST.some(m => r[0].startsWith(m))) return;
+        if(!r[2] && !r[4]) return;
+        igRows.push({
+          month: r[0], abonnes: parseInt(r[1])||0, publications: parseInt(r[2])||0,
+          reels: parseInt(r[3])||0, couverture: parseInt(r[4])||0,
+          impressions: parseInt(r[5])||0, engagement: parseInt(r[6])||0,
+          taux: r[7] || '', posts: parseInt(r[2])||0
+        });
+      });
+    };
+    parseFB(fbRes.values);
+    parseIG(igRes.values);
+    const c = getClient();
+    if(c){ c.data.fb = fbRows; c.data.ig = igRows; saveClients(); }
+    return { fb: fbRows, ig: igRows };
+  } catch(e){
+    toast('Erreur lecture données : ' + e.message, true);
+    return { fb:[], ig:[] };
+  }
+}
+
+// Créer un nouvel onglet dans le Sheets
+async function createSheetTab(clientName){
+  try {
+    await sheetsRequest('POST', ':batchUpdate', {
+      requests: [{ addSheet: { properties: { title: clientName.slice(0,31) } } }]
+    });
+    toast(`Onglet "${clientName}" créé dans Sheets`);
+  } catch(e){
+    toast('Erreur création onglet : ' + e.message, true);
+  }
+}
+
+// Supprimer un onglet du Sheets
+async function deleteSheetTab(clientName){
+  try {
+    const data = await sheetsRequest('GET', '?fields=sheets.properties');
+    const sheet = data.sheets.find(s => s.properties.title === clientName.slice(0,31));
+    if(!sheet){ return; }
+    await sheetsRequest('POST', ':batchUpdate', {
+      requests: [{ deleteSheet: { sheetId: sheet.properties.sheetId } }]
+    });
+    toast(`Onglet "${clientName}" supprimé du Sheets`);
+  } catch(e){
+    toast('Erreur suppression onglet : ' + e.message, true);
   }
 }
 
@@ -1106,21 +1241,24 @@ async function writeToSheets(clientName, platform, data, month){
     return false;
   }
 }
-function addClient(){
+async function addClient(){
   const name=document.getElementById('new-client-inp').value.trim(); if(!name){ toast('Saisissez un nom de client',true); return; }
   const colors=[['rgba(231,65,31,0.2)','#f9a488'],['rgba(15,110,86,0.2)','#5dcaa5'],['rgba(24,95,165,0.2)','#85b7eb'],['rgba(153,53,86,0.2)','#ed93b1'],['rgba(186,117,23,0.2)','#FAC775'],['rgba(83,74,183,0.2)','#AFA9EC']];
   const c=colors[state.clients.length%colors.length];
-  state.clients.push({id:'c'+Date.now(),name,color:c[0],txtColor:c[1],plats:['fb','ig'],ton:'Chaleureux',secteur:'',data:{fb:[],ig:[]}});
+  state.clients.push({id:'c'+Date.now(),name,color:c[0],txtColor:c[1],plats:['fb','ig'],ton:'Chaleureux',secteur:'',data:{fb:[],ig:[],lk:[]}});
   saveClients(); document.getElementById('new-client-inp').value='';
   renderSidebarClients(); renderSettingsClients();
-  toast(`Client "${name}" créé`);
+  if(isTokenValid()) await createSheetTab(name);
+  else toast(`Client "${name}" créé — connectez Google pour créer l'onglet Sheets`);
 }
-function deleteClient(id){
-  if(!confirm('Supprimer ce client ?')) return;
-  state.clients=state.clients.filter(c=>c.id!==id);
+async function deleteClient(id){
+  if(!confirm('Supprimer ce client et son onglet Sheets ?')) return;
+  const c = state.clients.find(cl=>cl.id===id);
+  state.clients=state.clients.filter(cl=>cl.id!==id);
   if(state.currentClient===id) state.currentClient=null;
   saveClients(); renderSidebarClients(); renderSettingsClients();
-  toast('Client supprimé');
+  if(c && isTokenValid()) await deleteSheetTab(c.name);
+  else toast('Client supprimé');
 }
 function tLI(){ state.liEnabled=!state.liEnabled; localStorage.setItem('arjcom-li',state.liEnabled?'1':'0'); document.getElementById('tog-li').className='tog '+(state.liEnabled?'on':'off'); }
 
@@ -1188,14 +1326,15 @@ function toast(msg, err=false){
 }
 
 // ── Init ──
-function initApp(){
+async function initApp(){
   if(state.apiKey) document.getElementById('api-key-inp').value=state.apiKey;
   if(state.liEnabled) document.getElementById('tog-li').className='tog on';
-  renderSidebarClients();
-  renderGoogleCTA();
   if(isTokenValid()){
+    await loadClientsFromSheets();
     renderSheetsStatus();
-    if(state.clients.length) selectClient(state.clients[0].id);
+  } else {
+    renderSidebarClients();
+    renderGoogleCTA();
   }
 }
 
