@@ -240,7 +240,23 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 </head>
 <body>
 
-<div class="app">
+<!-- ── Écran de connexion ── -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <img class="login-logo" id="login-logo-img" alt="Arjcom">
+    <div>
+      <div class="login-title">Arjcom — Stats</div>
+      <div class="login-sub">Pôle réseaux sociaux</div>
+    </div>
+    <div class="login-form">
+      <input class="login-inp" id="login-inp" type="password" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')checkPassword()">
+      <div class="login-error" id="login-error">Mot de passe incorrect</div>
+      <button class="login-btn" onclick="checkPassword()">Accéder à l'outil</button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
   <!-- ── Sidebar ── -->
   <div class="sb">
     <div class="sb-logo">
@@ -1259,9 +1275,13 @@ function renderGoogleCTA(){
 
 // Injecter le logo dans la page de login
 (function(){
-  const imgs = document.querySelectorAll('img[alt="Arjcom"]');
+  const imgs = document.querySelectorAll('.sb-logo img[alt="Arjcom"]');
   const loginLogo = document.getElementById('login-logo-img');
   if(imgs.length && loginLogo) loginLogo.src = imgs[0].src;
+  else {
+    // Fallback : reconstruire depuis le SVG inline si pas d'img
+    if(loginLogo) loginLogo.style.display='none';
+  }
 })();
 
 // Vérifier si déjà authentifié par mot de passe
