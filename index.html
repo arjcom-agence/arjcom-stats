@@ -220,6 +220,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 
 /* ── Page de connexion ── */
 .login-screen{position:fixed;inset:0;background:#0f0f0f;display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:0}
+.login-screen ~ * { display:none !important; }
 .login-card{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:16px;padding:40px 36px;width:340px;display:flex;flex-direction:column;align-items:center;gap:24px}
 .login-logo{width:90px;height:90px;border-radius:50%;object-fit:cover;display:block}
 .login-title{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:700;color:#f0ede8;text-align:center;line-height:1.3}
@@ -249,9 +250,9 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
       <div class="login-sub">Pôle réseaux sociaux</div>
     </div>
     <div class="login-form">
-      <input class="login-inp" id="login-inp" type="password" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')checkPassword()">
+      <input class="login-inp" id="login-inp" type="password" placeholder="Mot de passe">
       <div class="login-error" id="login-error">Mot de passe incorrect</div>
-      <button class="login-btn" onclick="checkPassword()">Accéder à l'outil</button>
+      <button class="login-btn" id="login-btn">Accéder à l'outil</button>
     </div>
   </div>
 </div>
@@ -1268,6 +1269,10 @@ function renderGoogleCTA(){
 }
 
 // Logo déjà intégré dans le HTML
+
+// Events page de connexion
+document.getElementById('login-btn').addEventListener('click', checkPassword);
+document.getElementById('login-inp').addEventListener('keydown', function(e){ if(e.key==='Enter') checkPassword(); });
 
 // Vérifier si déjà authentifié par mot de passe
 if(localStorage.getItem('arjcom-auth')==='1'){
