@@ -243,8 +243,8 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 <!-- ── Écran de connexion ── -->
 <div class="login-screen" id="login-screen">
   <div class="login-card">
-    <img class="login-logo" id="login-logo-img" alt="Arjcom">
-    <div>
+    <img class="login-logo" id="login-logo-img" alt="Arjcom" style="display:block">
+    <div style="text-align:center">
       <div class="login-title">Arjcom — Stats</div>
       <div class="login-sub">Pôle réseaux sociaux</div>
     </div>
@@ -1224,17 +1224,11 @@ function toast(msg, err=false){
 
 // ── Init ──
 // ── Page de connexion ──
-const PWD_HASH = 'ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d'; // sha256 de "smo"
+const PWD_HASH = '24a9245816c9847718fd2e831676a964acad6d4ec976feb23fa88f43aa83693a'; // sha256 de "smo"
 
-async function sha256(str){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-async function checkPassword(){
+function checkPassword(){
   const val = document.getElementById('login-inp').value.trim().toLowerCase();
-  const hash = await sha256(val);
-  if(hash === PWD_HASH){
+  if(val === 'smo'){
     localStorage.setItem('arjcom-auth','1');
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
@@ -1275,12 +1269,12 @@ function renderGoogleCTA(){
 
 // Injecter le logo dans la page de login
 (function(){
-  const imgs = document.querySelectorAll('.sb-logo img[alt="Arjcom"]');
+  const sbLogo = document.querySelector('.sb-logo img');
   const loginLogo = document.getElementById('login-logo-img');
-  if(imgs.length && loginLogo) loginLogo.src = imgs[0].src;
-  else {
-    // Fallback : reconstruire depuis le SVG inline si pas d'img
-    if(loginLogo) loginLogo.style.display='none';
+  if(sbLogo && loginLogo){
+    loginLogo.src = sbLogo.src;
+  } else if(loginLogo){
+    loginLogo.style.display = 'none';
   }
 })();
 
