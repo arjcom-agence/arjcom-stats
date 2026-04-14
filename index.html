@@ -1225,10 +1225,22 @@ async function createSheetTab(clientName){
       await sheetsRequest('POST', ':batchUpdate', { requests: fRequests });
     }
 
-    // 4. Appliquer le formatage
+    // 4. Appliquer le formatage (après les formules)
     await formatSheetTab(newSheetId);
 
-    // 5. Mettre à jour la page Accueil
+    // 5. Réécrire les formules car formatSheetTab peut les écraser
+    if(formulaCells.length){
+      const fRequests2 = formulaCells.map(({ri, ci, formula}) => ({
+        updateCells: {
+          rows: [{ values: [{ userEnteredValue: { formulaValue: formula } }] }],
+          fields: 'userEnteredValue',
+          range: { sheetId: newSheetId, startRowIndex: ri, endRowIndex: ri+1, startColumnIndex: ci, endColumnIndex: ci+1 }
+        }
+      }));
+      await sheetsRequest('POST', ':batchUpdate', { requests: fRequests2 });
+    }
+
+    // 6. Mettre à jour la page Accueil
     await updateAccueilSheet();
 
     toast(`Client "${clientName}" créé avec structure complète`);
