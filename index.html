@@ -1147,11 +1147,48 @@ async function createSheetTab(clientName){
       values.push([String(year)]); // label année
       values.push(["FACEBOOK","","","","","","","","","INSTAGRAM","","","","","","","","","LINKEDIN"]); // labels plateformes
       values.push([...FB_HDR,"", ...IG_HDR,"", ...LK_HDR]); // headers colonnes
+      let rowNum = values.length + 1; // 1-indexed row number in sheet
       for(const mois of MOIS){
-        values.push([mois,"","","","","","","","", mois,"","","","","","","","", mois,"","","","","","",""]);
+        const r = rowNum;
+        values.push([
+          mois,"","","","","","",`=IFERROR(F${r}/D${r},"")`, "",
+          mois,"","","","","","",`=IFERROR(P${r}/N${r},"")`, "",
+          mois,"","","","","","",`=IFERROR(X${r}/W${r},"")`
+        ]);
+        rowNum++;
       }
-      values.push(["Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel"]); // totaux
+      // Ligne totaux avec formules SUM
+      const dataStart = rowNum - 12;
+      const dataEnd = rowNum - 1;
+      const totRow = rowNum;
+      values.push([
+        "Total annuel","",
+        `=SUM(C${dataStart}:C${dataEnd})`,
+        `=SUM(D${dataStart}:D${dataEnd})`,
+        `=SUM(E${dataStart}:E${dataEnd})`,
+        `=SUM(F${dataStart}:F${dataEnd})`,
+        `=SUM(G${dataStart}:G${dataEnd})`,
+        `=IFERROR(F${totRow}/D${totRow},"")`,
+        "",
+        "Total annuel","",
+        `=SUM(L${dataStart}:L${dataEnd})`,
+        `=SUM(M${dataStart}:M${dataEnd})`,
+        `=SUM(N${dataStart}:N${dataEnd})`,
+        `=SUM(O${dataStart}:O${dataEnd})`,
+        `=SUM(P${dataStart}:P${dataEnd})`,
+        `=IFERROR(P${totRow}/N${totRow},"")`,
+        "",
+        "Total annuel","",
+        `=SUM(U${dataStart}:U${dataEnd})`,
+        `=SUM(V${dataStart}:V${dataEnd})`,
+        `=SUM(W${dataStart}:W${dataEnd})`,
+        `=SUM(X${dataStart}:X${dataEnd})`,
+        `=SUM(Y${dataStart}:Y${dataEnd})`,
+        `=IFERROR(X${totRow}/W${totRow},"")`
+      ]);
+      rowNum++;
       values.push([]); // spacer
+      rowNum++;
     }
 
     // 3. Écrire toute la structure en une fois
