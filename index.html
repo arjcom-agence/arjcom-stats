@@ -1125,127 +1125,62 @@ async function createSheetTab(clientName){
   try {
     const safe = clientName.slice(0,31);
 
-    // 1. Créer l'onglet vide
-    const addRes = await sheetsRequest('POST', ':batchUpdate', {
-      requests: [{ addSheet: { properties: { title: safe } } }]
+    // 1. Trouver l'ID d'un onglet existant à copier (le premier client disponible)
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`,
+      { headers: { 'Authorization': `Bearer ${googleAccessToken}` } });
+    const data = await res.json();
+    const IGNORED = ['Accueil'];
+    const sourceSheet = (data.sheets||[]).find(s => !IGNORED.includes(s.properties.title) && s.properties.title !== safe);
+    if(!sourceSheet){ toast('Aucun onglet source trouvé pour la copie', true); return; }
+    const sourceSheetId = sourceSheet.properties.sheetId;
+
+    // 2. Dupliquer l'onglet source
+    const copyRes = await sheetsRequest('POST', ':batchUpdate', {
+      requests: [{
+        duplicateSheet: {
+          sourceSheetId: sourceSheetId,
+          insertSheetIndex: data.sheets.length,
+          newSheetName: safe
+        }
+      }]
     });
-    const newSheetId = addRes.replies[0].addSheet.properties.sheetId;
+    const newSheetId = copyRes.replies[0].duplicateSheet.properties.sheetId;
 
-    // 2. Construire toutes les données de structure
-    const MOIS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-    const YEARS = [2026, 2025, 2024];
-    const FB_HDR = ["Mois","Abonnés","Posts","Couverture","Impressions","Engagement","Clics totaux","Taux d'eng."];
-    const IG_HDR = ["Mois","Communauté","Publications","Réels","Couverture","Impressions","Engagement","Taux d'eng."];
-    const LK_HDR = ["Mois","Abonnés","Publications","Impressions","Couverture","Engagement","Clics","Taux d'eng."];
-
-    const values = [];
-    // Bandeau client
-    values.push([clientName.toUpperCase()]);
-    values.push([]); // spacer
-
-    for(const year of YEARS){
-      values.push([String(year)]); // label année
-      values.push(["FACEBOOK","","","","","","","","","INSTAGRAM","","","","","","","","","LINKEDIN"]); // labels plateformes
-      values.push([...FB_HDR,"", ...IG_HDR,"", ...LK_HDR]); // headers colonnes
-      let rowNum = values.length + 1; // 1-indexed row number in sheet
-      for(const mois of MOIS){
-        const r = rowNum;
-        values.push([
-          mois,"","","","","","",`=IFERROR(F${r}/D${r},"")`, "",
-          mois,"","","","","","",`=IFERROR(P${r}/N${r},"")`, "",
-          mois,"","","","","","",`=IFERROR(X${r}/W${r},"")`
-        ]);
-        rowNum++;
-      }
-      // Ligne totaux avec formules SUM
-      const dataStart = rowNum - 12;
-      const dataEnd = rowNum - 1;
-      const totRow = rowNum;
-      values.push([
-        "Total annuel","",
-        `=SUM(C${dataStart}:C${dataEnd})`,
-        `=SUM(D${dataStart}:D${dataEnd})`,
-        `=SUM(E${dataStart}:E${dataEnd})`,
-        `=SUM(F${dataStart}:F${dataEnd})`,
-        `=SUM(G${dataStart}:G${dataEnd})`,
-        `=IFERROR(F${totRow}/D${totRow},"")`,
-        "",
-        "Total annuel","",
-        `=SUM(L${dataStart}:L${dataEnd})`,
-        `=SUM(M${dataStart}:M${dataEnd})`,
-        `=SUM(N${dataStart}:N${dataEnd})`,
-        `=SUM(O${dataStart}:O${dataEnd})`,
-        `=SUM(P${dataStart}:P${dataEnd})`,
-        `=IFERROR(P${totRow}/N${totRow},"")`,
-        "",
-        "Total annuel","",
-        `=SUM(U${dataStart}:U${dataEnd})`,
-        `=SUM(V${dataStart}:V${dataEnd})`,
-        `=SUM(W${dataStart}:W${dataEnd})`,
-        `=SUM(X${dataStart}:X${dataEnd})`,
-        `=SUM(Y${dataStart}:Y${dataEnd})`,
-        `=IFERROR(X${totRow}/W${totRow},"")`
-      ]);
-      rowNum++;
-      values.push([]); // spacer
-      rowNum++;
-    }
-
-    // 3. Séparer données texte et formules
-    const textValues = values.map(row => row.map(cell =>
-      typeof cell === 'string' && cell.startsWith('=') ? '' : cell
-    ));
-    const formulaCells = [];
-    values.forEach((row, ri) => {
-      row.forEach((cell, ci) => {
-        if(typeof cell === 'string' && cell.startsWith('='))
-          formulaCells.push({ri, ci, formula: cell});
-      });
+    // 3. Effacer toutes les données (garder la structure et le formatage)
+    // Effacer les cellules de données FB (B6:H53), IG (K6:Q53), LK (T6:Z53)
+    // pour les 3 années (lignes 6-17, 23-34, 40-51 en 1-indexed)
+    const clearRanges = [];
+    [[6,18],[23,35],[40,52]].forEach(([start, end]) => {
+      clearRanges.push(`${safe}!B${start}:H${end}`);  // FB data
+      clearRanges.push(`${safe}!K${start}:Q${end}`);  // IG data
+      clearRanges.push(`${safe}!T${start}:Z${end}`);  // LK data
     });
 
-    // Écrire les données texte
     await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+"!A1")}?valueInputOption=USER_ENTERED`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values:batchClear`,
       {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: textValues })
+        body: JSON.stringify({ ranges: clearRanges })
       }
     );
 
-    // Écrire les formules via batchUpdate
-    if(formulaCells.length){
-      const fRequests = formulaCells.map(({ri, ci, formula}) => ({
-        updateCells: {
-          rows: [{ values: [{ userEnteredValue: { formulaValue: formula } }] }],
-          fields: 'userEnteredValue',
-          range: { sheetId: newSheetId, startRowIndex: ri, endRowIndex: ri+1, startColumnIndex: ci, endColumnIndex: ci+1 }
-        }
-      }));
-      await sheetsRequest('POST', ':batchUpdate', { requests: fRequests });
-    }
+    // 4. Mettre à jour le bandeau avec le nom du nouveau client
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+'!A1')}?valueInputOption=USER_ENTERED`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[clientName.toUpperCase()]] })
+      }
+    );
 
-    // 4. Appliquer le formatage (après les formules)
-    await formatSheetTab(newSheetId);
-
-    // 5. Réécrire les formules car formatSheetTab peut les écraser
-    if(formulaCells.length){
-      const fRequests2 = formulaCells.map(({ri, ci, formula}) => ({
-        updateCells: {
-          rows: [{ values: [{ userEnteredValue: { formulaValue: formula } }] }],
-          fields: 'userEnteredValue',
-          range: { sheetId: newSheetId, startRowIndex: ri, endRowIndex: ri+1, startColumnIndex: ci, endColumnIndex: ci+1 }
-        }
-      }));
-      await sheetsRequest('POST', ':batchUpdate', { requests: fRequests2 });
-    }
-
-    // 6. Mettre à jour la page Accueil
+    // 5. Mettre à jour la page Accueil
     await updateAccueilSheet();
 
-    toast(`Client "${clientName}" créé avec structure complète`);
+    toast(`Client "${clientName}" créé`);
   } catch(e){
-    toast('Erreur création onglet : ' + e.message, true);
+    toast('Erreur création client : ' + e.message, true);
   }
 }
 
