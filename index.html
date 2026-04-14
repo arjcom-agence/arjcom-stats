@@ -217,6 +217,25 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 /* ── Toast ── */
 .toast{position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #3b6d11;color:#5fcf5f;padding:12px 20px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;z-index:200;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
+
+/* ── Page de connexion ── */
+.login-screen{position:fixed;inset:0;background:#0f0f0f;display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:0}
+.login-card{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:16px;padding:40px 36px;width:340px;display:flex;flex-direction:column;align-items:center;gap:24px}
+.login-logo{width:90px;height:90px;border-radius:50%;object-fit:cover;display:block}
+.login-title{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:700;color:#f0ede8;text-align:center;line-height:1.3}
+.login-sub{font-family:'DM Sans',sans-serif;font-size:13px;color:#888480;text-align:center;margin-top:-16px}
+.login-form{width:100%;display:flex;flex-direction:column;gap:10px}
+.login-inp{height:44px;padding:0 16px;border:1px solid #3a3a3a;border-radius:10px;font-size:14px;background:#242424;color:#f0ede8;width:100%;font-family:'DM Sans',sans-serif;outline:none;text-align:center;letter-spacing:0.1em;transition:border-color .15s}
+.login-inp:focus{border-color:#e7411f}
+.login-inp::placeholder{letter-spacing:0;color:#555250}
+.login-btn{height:44px;background:#e7411f;color:#fff;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;cursor:pointer;width:100%;transition:opacity .15s}
+.login-btn:hover{opacity:.88}
+.login-error{font-family:'DM Sans',sans-serif;font-size:12px;color:#f09595;text-align:center;display:none;margin-top:-6px}
+.login-error.show{display:block}
+/* ── État non connecté Google ── */
+.google-cta{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:12px;padding:20px;text-align:center;margin-bottom:14px}
+.google-cta-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#f0ede8;margin-bottom:6px}
+.google-cta-sub{font-family:'DM Sans',sans-serif;font-size:11px;color:#888480;margin-bottom:14px}
 </style>
 </head>
 <body>
@@ -511,6 +530,8 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
   </div>
 </div>
 
+<!-- fin .app -->
+
 <!-- Modale config client -->
 <div class="modal-wrap" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
@@ -559,14 +580,7 @@ const state = {
   channel: 'wa',
 };
 
-// Clients démo si vide
-if(!state.clients.length){
-  state.clients = [
-    {id:'bu',name:"Brasserie L'Univers",color:'rgba(231,65,31,0.2)',txtColor:'#f9a488',plats:['fb','ig'],ton:'Chaleureux',secteur:'Restauration',data:{fb:[],ig:[]}},
-    {id:'mc',name:'Maison Clément',color:'rgba(15,110,86,0.2)',txtColor:'#5dcaa5',plats:['fb','ig'],ton:'Professionnel',secteur:'Hôtellerie',data:{fb:[],ig:[]}},
-  ];
-  saveClients();
-}
+// Pas de données de démo — données réelles uniquement
 
 function saveClients(){ localStorage.setItem('arjcom-clients', JSON.stringify(state.clients)); }
 function getClient(){ return state.clients.find(c=>c.id===state.currentClient); }
@@ -965,6 +979,10 @@ function connectSheets(){
       localStorage.setItem('arjcom-gtoken-expiry', tokenExpiry.toString());
       toast('Connecté à Google Sheets !');
       renderSheetsStatus();
+      // Supprimer le CTA et charger les clients
+      const cta = document.getElementById('google-cta-banner');
+      if(cta) cta.remove();
+      if(state.clients.length) selectClient(state.clients[0].id);
     }
   });
   client.requestAccessToken();
@@ -1154,6 +1172,17 @@ function saveClientConfig(){
   toast('Configuration enregistrée');
 }
 
+// ── Déconnexion ──
+function logout(){
+  if(!confirm('Se déconnecter de l'outil ?')) return;
+  localStorage.removeItem('arjcom-auth');
+  disconnectSheets();
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-inp').value='';
+  document.getElementById('login-inp').focus();
+}
+
 // ── Export CSV ──
 function exportCSV(p){
   const c=getClient(); if(!c) return;
@@ -1178,12 +1207,71 @@ function toast(msg, err=false){
 }
 
 // ── Init ──
-if(state.apiKey) document.getElementById('api-key-inp').value=state.apiKey;
-if(state.liEnabled) document.getElementById('tog-li').className='tog on';
-renderSidebarClients();
-if(state.clients.length) selectClient(state.clients[0].id);
-// Vérifier si token Google encore valide au chargement
-if(isTokenValid()) renderSheetsStatus();
+// ── Page de connexion ──
+const PWD_HASH = 'ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d'; // sha256 de "smo"
+
+async function sha256(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkPassword(){
+  const val = document.getElementById('login-inp').value.trim().toLowerCase();
+  const hash = await sha256(val);
+  if(hash === PWD_HASH){
+    localStorage.setItem('arjcom-auth','1');
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    initApp();
+  } else {
+    document.getElementById('login-error').classList.add('show');
+    document.getElementById('login-inp').value='';
+    document.getElementById('login-inp').focus();
+  }
+}
+
+function initApp(){
+  if(state.apiKey) document.getElementById('api-key-inp').value=state.apiKey;
+  if(state.liEnabled) document.getElementById('tog-li').className='tog on';
+  renderSidebarClients();
+  renderGoogleCTA();
+  if(isTokenValid()){
+    renderSheetsStatus();
+    if(state.clients.length) selectClient(state.clients[0].id);
+  }
+}
+
+function renderGoogleCTA(){
+  if(isTokenValid()) return;
+  const content = document.getElementById('content');
+  if(!content) return;
+  const existing = document.getElementById('google-cta-banner');
+  if(existing) return;
+  const cta = document.createElement('div');
+  cta.id = 'google-cta-banner';
+  cta.className = 'google-cta';
+  cta.innerHTML = `
+    <div class="google-cta-title">Connexion Google requise</div>
+    <div class="google-cta-sub">Connectez-vous avec votre compte Arjcom pour charger les données clients et synchroniser avec Google Sheets.</div>
+    <button class="btn-p" style="margin:0 auto;display:flex" onclick="connectSheets()">Se connecter avec Google</button>`;
+  content.insertBefore(cta, content.firstChild);
+}
+
+// Injecter le logo dans la page de login
+(function(){
+  const imgs = document.querySelectorAll('img[alt="Arjcom"]');
+  const loginLogo = document.getElementById('login-logo-img');
+  if(imgs.length && loginLogo) loginLogo.src = imgs[0].src;
+})();
+
+// Vérifier si déjà authentifié par mot de passe
+if(localStorage.getItem('arjcom-auth')==='1'){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  initApp();
+} else {
+  document.getElementById('login-inp').focus();
+}
 </script>
 </body>
 </html>
