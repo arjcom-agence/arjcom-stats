@@ -1347,17 +1347,18 @@ async function updateAccueilSheet(){
     const sheetMap = {};
     (data.sheets||[]).forEach(s => sheetMap[s.properties.title] = s.properties.sheetId);
 
-    // Réécrire les liens avec les vrais gid
+    // Réécrire les liens avec l'URL complète
+    const baseUrl = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/edit#gid=`;
     const linkValues = [["Client","Facebook","Instagram","LinkedIn","Voir →"]];
     state.clients.forEach(c => {
       const safe = c.name.slice(0,31);
-      const gid = sheetMap[safe] || 0;
+      const gid = sheetMap[safe] !== undefined ? sheetMap[safe] : 0;
       linkValues.push([
         c.name,
         "✓ FB",
         "✓ IG",
         c.plats.includes('lk') ? "✓ LK" : "— LK",
-        `=HYPERLINK("#gid=${gid}","Voir →")`
+        `=HYPERLINK("${baseUrl}${gid}","Voir →")`
       ]);
     });
 
