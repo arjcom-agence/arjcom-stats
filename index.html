@@ -1307,14 +1307,30 @@ async function formatSheetTab(sheetId){
 // Mettre à jour la page Accueil du Sheets
 async function updateAccueilSheet(){
   try {
+    // D'abord vider la zone existante
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent("Accueil!A1:F50")}:clear`,
+      { method: 'POST', headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' } }
+    );
+
+    // Écrire les données avec formules HYPERLINK pour les liens
     const values = [
-      ["Arjcom — Stats · Reporting mensuel SMO"],
-      [],
-      ["Client","Facebook","Instagram","LinkedIn","Onglet"]
+      ["Arjcom — Stats · Reporting mensuel SMO","","","","",""],
+      ["","","","","",""],
+      ["Client","Facebook","Instagram","LinkedIn","Lien",""]
     ];
     state.clients.forEach(c => {
-      values.push([c.name, "✓ FB", "✓ IG", c.plats.includes('lk') ? "✓ LK" : "— LK", c.name]);
+      const safe = c.name.slice(0,31);
+      values.push([
+        c.name,
+        "✓ FB",
+        "✓ IG",
+        c.plats.includes('lk') ? "✓ LK" : "— LK",
+        `=HYPERLINK("#gid=0","${safe}")`,
+        ""
+      ]);
     });
+
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent("Accueil!A1")}?valueInputOption=USER_ENTERED`,
       {
@@ -1323,6 +1339,37 @@ async function updateAccueilSheet(){
         body: JSON.stringify({ values })
       }
     );
+
+    // Récupérer les sheetIds pour créer les vrais liens
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`,
+      { headers: { 'Authorization': `Bearer ${googleAccessToken}` } });
+    const data = await res.json();
+    const sheetMap = {};
+    (data.sheets||[]).forEach(s => sheetMap[s.properties.title] = s.properties.sheetId);
+
+    // Réécrire les liens avec les vrais gid
+    const linkValues = [["Client","Facebook","Instagram","LinkedIn","Voir →"]];
+    state.clients.forEach(c => {
+      const safe = c.name.slice(0,31);
+      const gid = sheetMap[safe] || 0;
+      linkValues.push([
+        c.name,
+        "✓ FB",
+        "✓ IG",
+        c.plats.includes('lk') ? "✓ LK" : "— LK",
+        `=HYPERLINK("#gid=${gid}","Voir →")`
+      ]);
+    });
+
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent("Accueil!A3")}?valueInputOption=USER_ENTERED`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: linkValues })
+      }
+    );
+
   } catch(e){
     console.error('Erreur mise à jour Accueil:', e.message);
   }
