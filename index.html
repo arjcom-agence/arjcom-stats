@@ -1503,7 +1503,7 @@ async function writeToSheets(clientName, platform, data, month){
   const sheetName = clientName.length > 31 ? clientName.slice(0,31) : clientName;
 
   if(platform === 'fb'){
-    // A:H — Mois | Abonnés | Posts | Couverture | Impressions | Engagement | Clics | (taux calculé auto)
+    // A:H — Mois | Abonnés | Posts | Couverture | Impressions | Engagement | Clics | Taux
     values = [[
       month,
       data.abonnes || '',
@@ -1511,11 +1511,12 @@ async function writeToSheets(clientName, platform, data, month){
       data.couverture || '',
       data.impressions || '',
       data.engagement || '',
-      data.clics || ''
+      data.clics || '',
+      data.taux || ''
     ]];
-    range = `'${sheetName}'!A${row}:G${row}`;
+    range = `'${sheetName}'!A${row}:H${row}`;
   } else if(platform === 'ig'){
-    // J:Q — Mois | Communauté | Publications | Réels | Couverture | Impressions | Engagement | (taux calculé auto)
+    // J:Q — Mois | Communauté | Publications | Réels | Couverture | Impressions | Engagement | Taux
     values = [[
       month,
       data.abonnes || '',
@@ -1523,11 +1524,12 @@ async function writeToSheets(clientName, platform, data, month){
       data.reels || '',
       data.couverture || '',
       data.impressions || '',
-      data.engagement || ''
+      data.engagement || '',
+      data.taux || ''
     ]];
-    range = `'${sheetName}'!J${row}:P${row}`;
+    range = `'${sheetName}'!J${row}:Q${row}`;
   } else if(platform === 'lk'){
-    // S:Z — Mois | Abonnés | Publications | Impressions | Couverture | Engagement | Clics | (taux calculé auto)
+    // S:Z — Mois | Abonnés | Publications | Impressions | Couverture | Engagement | Clics | Taux
     values = [[
       month,
       data.abonnes || '',
@@ -1535,9 +1537,10 @@ async function writeToSheets(clientName, platform, data, month){
       data.impressions || '',
       data.couverture || '',
       data.engagement || '',
-      data.clics || ''
+      data.clics || '',
+      data.taux || ''
     ]];
-    range = `'${sheetName}'!S${row}:Y${row}`;
+    range = `'${sheetName}'!S${row}:Z${row}`;
   }
 
   try {
