@@ -1191,15 +1191,39 @@ async function createSheetTab(clientName){
       rowNum++;
     }
 
-    // 3. Écrire toute la structure en une fois
+    // 3. Séparer données texte et formules
+    const textValues = values.map(row => row.map(cell =>
+      typeof cell === 'string' && cell.startsWith('=') ? '' : cell
+    ));
+    const formulaCells = [];
+    values.forEach((row, ri) => {
+      row.forEach((cell, ci) => {
+        if(typeof cell === 'string' && cell.startsWith('='))
+          formulaCells.push({ri, ci, formula: cell});
+      });
+    });
+
+    // Écrire les données texte
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+"!A1")}?valueInputOption=USER_ENTERED`,
       {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values })
+        body: JSON.stringify({ values: textValues })
       }
     );
+
+    // Écrire les formules via batchUpdate
+    if(formulaCells.length){
+      const fRequests = formulaCells.map(({ri, ci, formula}) => ({
+        updateCells: {
+          rows: [{ values: [{ userEnteredValue: { formulaValue: formula } }] }],
+          fields: 'userEnteredValue',
+          range: { sheetId: newSheetId, startRowIndex: ri, endRowIndex: ri+1, startColumnIndex: ci, endColumnIndex: ci+1 }
+        }
+      }));
+      await sheetsRequest('POST', ':batchUpdate', { requests: fRequests });
+    }
 
     // 4. Appliquer le formatage
     await formatSheetTab(newSheetId);
