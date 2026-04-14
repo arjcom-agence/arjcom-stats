@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arjcom — Stats</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -539,6 +540,11 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Configuration Google ──
+const GOOGLE_CLIENT_ID = '949026014926-eqp3e71vf0ailt36jktaobs728um0ash.apps.googleusercontent.com';
+const SHEETS_ID = '1TpZSg42duWHhTX-iJzfG4n1iqqccrQaL';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
 // ── État global ──
 const state = {
   clients: JSON.parse(localStorage.getItem('arjcom-clients') || '[]'),
@@ -817,19 +823,39 @@ function showPreview(p, data){
   document.getElementById('preview-metrics').innerHTML=metrics.map(m=>`<div class="pm"><div class="pml">${m.l}</div><div class="pmv${m.r?' r':''}">${m.v}</div></div>`).join('');
 }
 
-function sendToSheets(){
+async function sendToSheets(){
   const c=getClient(); if(!c){ toast('Sélectionnez un client',true); return; }
   const month=document.getElementById('import-month-sel').value; if(!month){ toast('Sélectionnez un mois',true); return; }
   const abonnes=parseInt(document.getElementById('abonnes-input').value)||0;
-  const p=state.fbData?'fb':'ig';
-  const data=state.fbData||state.igData;
-  if(!data){ toast('Aucun fichier importé',true); return; }
-  const entry={month,...data,abonnes};
-  if(!c.data[p]) c.data[p]=[];
-  const idx=c.data[p].findIndex(r=>r.month===month);
-  if(idx>=0) c.data[p][idx]=entry; else c.data[p].push(entry);
+
+  const platforms = [];
+  if(state.fbData) platforms.push({p:'fb', data:{...state.fbData, abonnes}});
+  if(state.igData) platforms.push({p:'ig', data:{...state.igData, abonnes}});
+  if(state.lkData) platforms.push({p:'lk', data:{...state.lkData, abonnes}});
+
+  if(!platforms.length){ toast('Aucun fichier importé',true); return; }
+
+  // Enregistrement local
+  platforms.forEach(({p, data}) => {
+    const entry = {month, ...data};
+    if(!c.data[p]) c.data[p]=[];
+    const idx = c.data[p].findIndex(r=>r.month===month);
+    if(idx>=0) c.data[p][idx]=entry; else c.data[p].push(entry);
+  });
   saveClients();
-  toast(`Données enregistrées — ${c.name} · ${month}`);
+
+  // Envoi vers Sheets si connecté
+  if(isTokenValid()){
+    let allOk = true;
+    for(const {p, data} of platforms){
+      const ok = await writeToSheets(c.name, p, data, month);
+      if(!ok) allOk = false;
+    }
+    if(allOk) toast(`Envoyé vers Sheets — ${c.name} · ${month}`);
+  } else {
+    toast(`Enregistré localement — connectez Google Sheets dans Paramètres`);
+  }
+
   resetImport();
   selectClient(c.id);
 }
@@ -919,11 +945,162 @@ function selectChannel(c){ state.channel=c; document.getElementById('ch-wa').cla
 
 // ── Paramètres ──
 function saveApiKey(){ state.apiKey=document.getElementById('api-key-inp').value.trim(); localStorage.setItem('arjcom-apikey',state.apiKey); toast('Clé API enregistrée'); }
-function connectSheets(){ state.sheetsId=document.getElementById('sheets-id-inp').value.trim(); localStorage.setItem('arjcom-sheetsid',state.sheetsId); renderSheetsStatus(); toast('Sheets configuré — connexion Google à finaliser'); }
+// ── Google OAuth ──
+let googleAccessToken = localStorage.getItem('arjcom-gtoken') || '';
+let tokenExpiry = parseInt(localStorage.getItem('arjcom-gtoken-expiry') || '0');
+
+function isTokenValid(){
+  return googleAccessToken && Date.now() < tokenExpiry;
+}
+
+function connectSheets(){
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if(resp.error){ toast('Erreur de connexion Google : ' + resp.error, true); return; }
+      googleAccessToken = resp.access_token;
+      tokenExpiry = Date.now() + (resp.expires_in * 1000);
+      localStorage.setItem('arjcom-gtoken', googleAccessToken);
+      localStorage.setItem('arjcom-gtoken-expiry', tokenExpiry.toString());
+      toast('Connecté à Google Sheets !');
+      renderSheetsStatus();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function disconnectSheets(){
+  google.accounts.oauth2.revoke(googleAccessToken, () => {});
+  googleAccessToken = '';
+  localStorage.removeItem('arjcom-gtoken');
+  localStorage.removeItem('arjcom-gtoken-expiry');
+  toast('Déconnecté de Google Sheets');
+  renderSheetsStatus();
+}
+
 function renderSheetsStatus(){
-  const el=document.getElementById('sheets-status-block');
-  if(state.sheetsId){ el.innerHTML=`<div class="sheets-ok"><div style="width:9px;height:9px;border-radius:50%;background:#5fcf5f;flex-shrink:0"></div><div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#5fcf5f;font-weight:500">Fichier Sheets configuré</div><div style="font-family:'DM Sans',sans-serif;font-size:11px;color:#5fcf5f;margin-left:auto;overflow:hidden;text-overflow:ellipsis;max-width:160px">${state.sheetsId.slice(0,20)}...</div></div><div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:8px">La connexion OAuth Google sera activée dans la v2.</div>`; }
-  else { el.innerHTML=`<div class="sheets-err"><div style="width:9px;height:9px;border-radius:50%;background:#f09595;flex-shrink:0"></div><div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#f09595;font-weight:500">Non connecté</div></div><div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:10px">Collez l'ID de votre fichier Google Sheets (visible dans l'URL)</div><input class="inp" id="sheets-id-inp" type="text" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="margin-bottom:8px"><button class="btn-p" style="width:100%;height:38px;justify-content:center" onclick="connectSheets()">Se connecter avec Google</button>`; }
+  const el = document.getElementById('sheets-status-block');
+  if(!el) return;
+  if(isTokenValid()){
+    el.innerHTML = `
+      <div class="sheets-ok">
+        <div style="width:9px;height:9px;border-radius:50%;background:#5fcf5f;flex-shrink:0"></div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#5fcf5f;font-weight:500">Connecté à Google Sheets</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:#5fcf5f;margin-left:auto">${state.currentClient ? getClient()?.name || '' : 'Prêt'}</div>
+      </div>
+      <div class="info-row"><span class="il">Fichier Sheets</span><span class="iv">Arjcom_Stats_Final</span></div>
+      <div class="info-row"><span class="il">Statut</span><span class="iv" style="color:#5fcf5f">Actif</span></div>
+      <button class="btn-g" style="width:100%;height:36px;justify-content:center;margin-top:8px" onclick="disconnectSheets()">Se déconnecter</button>`;
+  } else {
+    el.innerHTML = `
+      <div class="sheets-err">
+        <div style="width:9px;height:9px;border-radius:50%;background:#f09595;flex-shrink:0"></div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#f09595;font-weight:500">Non connecté</div>
+      </div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:12px">
+        Connectez-vous avec votre compte Google agence pour synchroniser les données avec le fichier Sheets partagé.
+      </div>
+      <button class="btn-p" style="width:100%;height:38px;justify-content:center" onclick="connectSheets()">
+        Se connecter avec Google
+      </button>`;
+  }
+}
+
+// ── Écriture dans Google Sheets ──
+// Mapping colonnes Sheets (1-indexé) par plateforme
+// FB  : A=Mois B=Abonnés C=Posts D=Couverture E=Impressions F=Engagement G=Clics H=Taux
+// IG  : J=Mois K=Communauté L=Publications M=Réels N=Couverture O=Impressions P=Engagement Q=Taux
+// LK  : S=Mois T=Abonnés U=Publications V=Impressions W=Couverture X=Engagement Y=Clics Z=Taux
+
+const MOIS_LIST = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const YEARS_LIST = [2026, 2025, 2024];
+
+function getSheetRowForMonth(monthStr){
+  // Calcule la ligne dans le Sheets pour un mois donné
+  // Structure : bandeau(1) + spacer(1) + par année : label(1) + plat-header(1) + col-header(1) + 12 mois + total(1) + spacer(1) = 17 lignes/an
+  // data_start pour 2026 = row 6, pour 2025 = 6+17=23, pour 2024 = 6+34=40
+  const parts = monthStr.split(' ');
+  const moisName = parts[0];
+  const year = parseInt(parts[1]);
+  const yearIdx = YEARS_LIST.indexOf(year);
+  if(yearIdx === -1) return null;
+  const moisIdx = MOIS_LIST.indexOf(moisName);
+  if(moisIdx === -1) return null;
+  const BASE_ROW = 6; // première ligne de données (2026, janvier)
+  const ROWS_PER_YEAR = 17; // label + platHeader + colHeader + 12mois + total + spacer
+  const dataStart = BASE_ROW + (yearIdx * ROWS_PER_YEAR);
+  return dataStart + moisIdx;
+}
+
+async function writeToSheets(clientName, platform, data, month){
+  if(!isTokenValid()){
+    toast('Session Google expirée — reconnectez-vous dans Paramètres', true);
+    return false;
+  }
+  const row = getSheetRowForMonth(month);
+  if(!row){ toast('Mois invalide', true); return false; }
+
+  let values, range;
+  const sheetName = clientName.length > 31 ? clientName.slice(0,31) : clientName;
+
+  if(platform === 'fb'){
+    // A:H — Mois | Abonnés | Posts | Couverture | Impressions | Engagement | Clics | (taux calculé auto)
+    values = [[
+      month,
+      data.abonnes || '',
+      data.posts || '',
+      data.couverture || '',
+      data.impressions || '',
+      data.engagement || '',
+      data.clics || ''
+    ]];
+    range = `'${sheetName}'!A${row}:G${row}`;
+  } else if(platform === 'ig'){
+    // J:Q — Mois | Communauté | Publications | Réels | Couverture | Impressions | Engagement | (taux calculé auto)
+    values = [[
+      month,
+      data.abonnes || '',
+      data.publications || data.posts || '',
+      data.reels || '',
+      data.couverture || '',
+      data.impressions || '',
+      data.engagement || ''
+    ]];
+    range = `'${sheetName}'!J${row}:P${row}`;
+  } else if(platform === 'lk'){
+    // S:Z — Mois | Abonnés | Publications | Impressions | Couverture | Engagement | Clics | (taux calculé auto)
+    values = [[
+      month,
+      data.abonnes || '',
+      data.publications || data.posts || '',
+      data.impressions || '',
+      data.couverture || '',
+      data.engagement || '',
+      data.clics || ''
+    ]];
+    range = `'${sheetName}'!S${row}:Y${row}`;
+  }
+
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${googleAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ values })
+    });
+    if(!res.ok){
+      const err = await res.json();
+      throw new Error(err.error?.message || 'Erreur Sheets');
+    }
+    return true;
+  } catch(e){
+    toast('Erreur écriture Sheets : ' + e.message, true);
+    return false;
+  }
 }
 function addClient(){
   const name=document.getElementById('new-client-inp').value.trim(); if(!name){ toast('Saisissez un nom de client',true); return; }
@@ -1005,6 +1182,8 @@ if(state.apiKey) document.getElementById('api-key-inp').value=state.apiKey;
 if(state.liEnabled) document.getElementById('tog-li').className='tog on';
 renderSidebarClients();
 if(state.clients.length) selectClient(state.clients[0].id);
+// Vérifier si token Google encore valide au chargement
+if(isTokenValid()) renderSheetsStatus();
 </script>
 </body>
 </html>
