@@ -1349,7 +1349,7 @@ async function updateAccueilSheet(){
 
     // Réécrire les liens avec l'URL complète
     const baseUrl = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/edit#gid=`;
-    const linkValues = [["Client","Facebook","Instagram","LinkedIn","Voir →"]];
+    const linkValues = [["Client","Facebook","Instagram","LinkedIn","Voir"]];
     state.clients.forEach(c => {
       const safe = c.name.slice(0,31);
       const gid = sheetMap[safe] !== undefined ? sheetMap[safe] : 0;
@@ -1358,7 +1358,7 @@ async function updateAccueilSheet(){
         "✓ FB",
         "✓ IG",
         c.plats.includes('lk') ? "✓ LK" : "— LK",
-        `=HYPERLINK("${baseUrl}${gid}","Voir →")`
+        `=HYPERLINK("${baseUrl}${gid}","Voir >")`
       ]);
     });
 
