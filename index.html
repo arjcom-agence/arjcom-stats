@@ -301,7 +301,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
           <div class="card"><div class="ch"><span class="ct">Taux d'engagement</span><span class="cs">6 derniers mois</span></div><div class="bars" id="be"></div></div>
         </div>
         <div class="card">
-          <div class="ch"><span class="ct">Historique Facebook — 2026</span><button class="btn-sm" onclick="exportCSV('fb')">Exporter CSV</button></div>
+          <div class="ch"><span class="ct" id="hist-title">Historique Facebook — 2026</span><button class="btn-sm" onclick="exportCSV('fb')">Exporter CSV</button></div>
           <div style="overflow-x:auto">
             <table class="ht">
               <thead><tr><th>Mois</th><th>Posts</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th></tr></thead>
@@ -309,15 +309,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
             </table>
           </div>
         </div>
-        <div class="card">
-          <div class="ch"><span class="ct">Historique Instagram — 2026</span><button class="btn-sm" onclick="exportCSV('ig')">Exporter CSV</button></div>
-          <div style="overflow-x:auto">
-            <table class="ht">
-              <thead><tr><th>Mois</th><th>Publications</th><th>Réels</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Taux</th></tr></thead>
-              <tbody id="hist-body-ig"><tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px">Aucune donnée — importez un mois pour commencer</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+
       </div>
 
       <!-- Import -->
@@ -671,8 +663,7 @@ function renderDashboard(){
     document.getElementById('d-taux').textContent = last.taux || '—';
   }
   renderBars(rows);
-  renderHistTableFB(c.data.fb || []);
-  renderHistTableIG(c.data.ig || []);
+  renderHistTableFB(c.data[state.currentPlatform] || []);
 }
 
 function renderBars(rows){
@@ -696,33 +687,26 @@ function drawBars(id, data, labels, color){
 }
 
 function renderHistTableFB(rows){
+  const p = state.currentPlatform;
   const tbody = document.getElementById('hist-body-fb');
-  if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px">Aucune donnée Facebook</td></tr>'; return; }
+  const titleEl = document.getElementById('hist-title');
+  if(titleEl) titleEl.textContent = (p==='fb'?'Historique Facebook':'Historique Instagram')+' — 2026';
+  const thead = tbody.closest('table').querySelector('thead tr');
+  if(p==='ig'){
+    thead.innerHTML='<th>Mois</th><th>Publications</th><th>Réels</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Taux</th>';
+  } else {
+    thead.innerHTML='<th>Mois</th><th>Posts</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th>';
+  }
+  if(!rows.length){ tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px">Aucune donnée — importez un mois pour commencer</td></tr>`; return; }
   tbody.innerHTML = [...rows].reverse().map((r,i)=>`
     <tr${i===0?' class="cur"':''}>
       <td><strong>${r.month}</strong></td>
-      <td>${r.posts||'—'}</td>
+      ${p==='ig'?`<td>${r.publications||r.posts||'—'}</td><td>${r.reels||'0'}</td>`:`<td>${r.posts||'—'}</td>`}
       <td>${r.abonnes?fmt(r.abonnes):'—'}</td>
       <td>${r.couverture?fmt(r.couverture):'—'}</td>
       <td>${r.impressions?fmt(r.impressions):'—'}</td>
       <td>${r.engagement?fmt(r.engagement):'—'}</td>
-      <td>${r.clics?fmt(r.clics):'—'}</td>
-      <td class="rate">${r.taux||'—'}</td>
-    </tr>`).join('');
-}
-
-function renderHistTableIG(rows){
-  const tbody = document.getElementById('hist-body-ig');
-  if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px">Aucune donnée Instagram</td></tr>'; return; }
-  tbody.innerHTML = [...rows].reverse().map((r,i)=>`
-    <tr${i===0?' class="cur"':''}>
-      <td><strong>${r.month}</strong></td>
-      <td>${r.publications||r.posts||'—'}</td>
-      <td>${r.reels||'0'}</td>
-      <td>${r.abonnes?fmt(r.abonnes):'—'}</td>
-      <td>${r.couverture?fmt(r.couverture):'—'}</td>
-      <td>${r.impressions?fmt(r.impressions):'—'}</td>
-      <td>${r.engagement?fmt(r.engagement):'—'}</td>
+      ${p==='ig'?'':`<td>${r.clics?fmt(r.clics):'—'}</td>`}
       <td class="rate">${r.taux||'—'}</td>
     </tr>`).join('');
 }
