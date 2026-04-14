@@ -1036,7 +1036,7 @@ async function sheetsRequest(method, endpoint, body){
 // Charger les clients depuis les onglets du Sheets
 async function loadClientsFromSheets(){
   try {
-    const data = await sheetsRequest('GET', '?fields=sheets.properties.title');
+    const data = await sheetsRequest('GET', '?includeGridData=false');
     const IGNORED = ['Accueil'];
     const colors = [
       ['rgba(231,65,31,0.2)','#f9a488'],['rgba(15,110,86,0.2)','#5dcaa5'],
@@ -1134,7 +1134,7 @@ async function createSheetTab(clientName){
 // Supprimer un onglet du Sheets
 async function deleteSheetTab(clientName){
   try {
-    const data = await sheetsRequest('GET', '?fields=sheets.properties');
+    const data = await sheetsRequest('GET', '?includeGridData=false');
     const sheet = data.sheets.find(s => s.properties.title === clientName.slice(0,31));
     if(!sheet){ return; }
     await sheetsRequest('POST', ':batchUpdate', {
