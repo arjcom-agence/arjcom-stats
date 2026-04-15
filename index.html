@@ -1190,9 +1190,17 @@ async function loadClientDataFromSheets(clientName){
     // Parser robuste pour les nombres — gère espaces, virgules, points
     const parseNum = (v) => {
       if(!v && v !== 0) return 0;
-      const s = String(v).split(' ').join('').split(' ').join('').replace(',','.');
-      return parseInt(s) || 0;
-    };
+      let s = String(v);
+      const chars = [];
+      for(let i=0; i<s.length; i++){
+        const code = s.charCodeAt(i);
+        // Garder uniquement chiffres, virgule, point, signe moins
+        if((code >= 48 && code <= 57) || code === 44 || code === 46 || code === 45) chars.push(s[i]);
+      }
+      s = chars.join('').replace(',','.');
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : Math.round(n);
+    }
 
     const parseRows = (rows, handler) => {
       (rows || []).forEach(r => {
