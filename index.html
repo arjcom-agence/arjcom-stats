@@ -1004,6 +1004,7 @@ function renderSheetsStatus(){
       </div>
       <div class="info-row"><span class="il">Fichier Sheets</span><span class="iv">Arjcom_Stats_Final</span></div>
       <div class="info-row"><span class="il">Clients chargés</span><span class="iv">${state.clients.length}</span></div>
+      <div class="info-row"><span class="il">Statut</span><span class="iv" style="color:#5fcf5f">Actif</span></div>
       <button class="btn-g" style="width:100%;height:36px;justify-content:center;margin-top:8px" onclick="disconnectSheets()">Se déconnecter</button>`;
   } else {
     el.innerHTML = `
@@ -1146,16 +1147,13 @@ async function createSheetTab(clientName){
     });
     const newSheetId = copyRes.replies[0].duplicateSheet.properties.sheetId;
 
-    // 3. Effacer toutes les données (garder la structure et le formatage)
-    // Effacer les cellules de données FB (B6:H53), IG (K6:Q53), LK (T6:Z53)
-    // pour les 3 années (lignes 6-17, 23-34, 40-51 en 1-indexed)
+    // 3. Effacer les données de 2026 (garder la structure)
     const clearRanges = [];
-    [[6,18],[23,35],[40,52]].forEach(([start, end]) => {
-      clearRanges.push(`${safe}!B${start}:H${end}`);  // FB data
-      clearRanges.push(`${safe}!K${start}:Q${end}`);  // IG data
-      clearRanges.push(`${safe}!T${start}:Z${end}`);  // LK data
+    [[6,18]].forEach(([start, end]) => {
+      clearRanges.push(`${safe}!B${start}:H${end}`);
+      clearRanges.push(`${safe}!K${start}:Q${end}`);
+      clearRanges.push(`${safe}!T${start}:Z${end}`);
     });
-
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values:batchClear`,
       {
@@ -1407,23 +1405,198 @@ async function deleteSheetTab(clientName){
 // LK  : S=Mois T=Abonnés U=Publications V=Impressions W=Couverture X=Engagement Y=Clics Z=Taux
 
 const MOIS_LIST = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const YEARS_LIST = [2026, 2025, 2024];
+const ROWS_PER_YEAR = 17; // label + platHeader + colHeader + 12mois + total + spacer
+const BASE_ROW = 6; // première ligne de données (row 1-indexed)
+const FIXED_ROWS = 2; // bandeau + spacer
 
-function getSheetRowForMonth(monthStr){
-  // Calcule la ligne dans le Sheets pour un mois donné
-  // Structure : bandeau(1) + spacer(1) + par année : label(1) + plat-header(1) + col-header(1) + 12 mois + total(1) + spacer(1) = 17 lignes/an
-  // data_start pour 2026 = row 6, pour 2025 = 6+17=23, pour 2024 = 6+34=40
+// Calcule le row index 1-based pour un mois/année donné
+// Les années sont en ordre DÉCROISSANT : la plus récente en haut
+// Année à l'index 0 = année la plus récente dans le sheet
+function getYearIndex(year, knownYears){
+  // knownYears = liste triée décroissante des années présentes dans le sheet
+  return knownYears.indexOf(year);
+}
+
+function getSheetRowForMonth(monthStr, knownYears){
   const parts = monthStr.split(' ');
   const moisName = parts[0];
   const year = parseInt(parts[1]);
-  const yearIdx = YEARS_LIST.indexOf(year);
+  const yearIdx = knownYears.indexOf(year);
   if(yearIdx === -1) return null;
   const moisIdx = MOIS_LIST.indexOf(moisName);
   if(moisIdx === -1) return null;
-  const BASE_ROW = 6; // première ligne de données (2026, janvier)
-  const ROWS_PER_YEAR = 17; // label + platHeader + colHeader + 12mois + total + spacer
   const dataStart = BASE_ROW + (yearIdx * ROWS_PER_YEAR);
   return dataStart + moisIdx;
+}
+
+// Cache des années connues par onglet client
+const sheetYearsCache = {};
+
+// getSheetRowForMonth défini dans les constantes ci-dessus
+
+// Lire les années présentes dans un onglet client
+async function getSheetYears(sheetName){
+  if(sheetYearsCache[sheetName]) return sheetYearsCache[sheetName];
+  try {
+    const safe = sheetName.slice(0,31);
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+'!A1:A200')}`,
+      { headers: { 'Authorization': `Bearer ${googleAccessToken}` } }
+    );
+    const data = await res.json();
+    const years = [];
+    (data.values||[]).forEach(row => {
+      const val = parseInt(row[0]);
+      if(val >= 2020 && val <= 2100) years.push(val);
+    });
+    years.sort((a,b) => b-a); // décroissant
+    sheetYearsCache[sheetName] = years;
+    return years;
+  } catch(e){ return []; }
+}
+
+// Créer une section année dans un onglet (insère EN HAUT après le bandeau)
+async function ensureYearExists(sheetName, year){
+  const years = await getSheetYears(sheetName);
+  if(years.includes(year)) return years;
+
+  const safe = sheetName.slice(0,31);
+
+  // Trouver le sheetId
+  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`,
+    { headers: { 'Authorization': `Bearer ${googleAccessToken}` } });
+  const meta = await metaRes.json();
+  const sheet = (meta.sheets||[]).find(s => s.properties.title === safe);
+  if(!sheet) return years;
+  const sheetId = sheet.properties.sheetId;
+
+  // Insérer 17 lignes vides après la ligne 2 (après bandeau+spacer)
+  await sheetsRequest('POST', ':batchUpdate', {
+    requests: [{
+      insertDimension: {
+        range: { sheetId, dimension: 'ROWS', startIndex: 2, endIndex: 2 + ROWS_PER_YEAR },
+        inheritFromBefore: false
+      }
+    }]
+  });
+
+  // Construire les données de la nouvelle section
+  const FB_HDR = ["Mois","Abonnés","Posts","Couverture","Impressions","Engagement","Clics totaux","Taux d'eng."];
+  const IG_HDR = ["Mois","Communauté","Publications","Réels","Couverture","Impressions","Engagement","Taux d'eng."];
+  const LK_HDR = ["Mois","Abonnés","Publications","Impressions","Couverture","Engagement","Clics","Taux d'eng."];
+
+  const sectionValues = [
+    [String(year)], // label année
+    ["FACEBOOK","","","","","","","","","INSTAGRAM","","","","","","","","","LINKEDIN"],
+    [...FB_HDR,"", ...IG_HDR,"", ...LK_HDR]
+  ];
+  MOIS_LIST.forEach(mois => {
+    sectionValues.push([mois,"","","","","","","","", mois,"","","","","","","","", mois,"","","","","","",""]);
+  });
+  sectionValues.push(["Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel"]);
+  sectionValues.push([]); // spacer
+
+  // Écrire les données (à partir de la ligne 3, 1-indexed)
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+'!A3')}?valueInputOption=USER_ENTERED`,
+    {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: sectionValues })
+    }
+  );
+
+  // Appliquer le formatage sur la nouvelle section
+  await formatYearSection(sheetId, 2, year); // rowIndex 0-based = 2
+
+  // Invalider le cache et retourner les nouvelles années
+  delete sheetYearsCache[sheetName];
+  const newYears = [year, ...years].sort((a,b) => b-a);
+  sheetYearsCache[sheetName] = newYears;
+  toast(`Section ${year} créée automatiquement`);
+  return newYears;
+}
+
+// Formater une section année à un rowIndex donné (0-based)
+async function formatYearSection(sheetId, baseRowIdx, year){
+  const C = {
+    BRAND:   {red:0.906,green:0.255,blue:0.122},
+    YEAR_BG: {red:0.992,green:0.941,blue:0.925},
+    FB_HDR:  {red:0.094,green:0.373,blue:0.647},
+    FB_BG:   {red:0.902,green:0.945,blue:0.984},
+    FB_TXT:  {red:0.047,green:0.267,blue:0.486},
+    IG_HDR:  {red:0.600,green:0.208,blue:0.243},
+    IG_BG:   {red:0.984,green:0.918,blue:0.941},
+    IG_TXT:  {red:0.447,green:0.141,blue:0.243},
+    LK_HDR:  {red:0.102,green:0.337,blue:0.800},
+    LK_BG:   {red:0.910,green:0.941,blue:0.984},
+    LK_TXT:  {red:0.102,green:0.227,blue:0.420},
+    TOT_FB:  {red:0.839,green:0.910,blue:0.969},
+    TOT_IG:  {red:0.957,green:0.753,blue:0.820},
+    TOT_LK:  {red:0.773,green:0.847,blue:0.961},
+    WHITE:   {red:1,green:1,blue:1},
+    ROW_ALT: {red:0.973,green:0.969,blue:0.961},
+    TXT:     {red:0.102,green:0.102,blue:0.102},
+  };
+  function bg(c){return {backgroundColor:c};}
+  function fg(c){return {foregroundColor:c};}
+  function rangeFmt(r1,c1,r2,c2,props){
+    return {repeatCell:{
+      range:{sheetId,startRowIndex:r1,endRowIndex:r2,startColumnIndex:c1,endColumnIndex:c2},
+      cell:{userEnteredFormat:Object.assign({},...props)},
+      fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+    }};
+  }
+  function rowH(r,px){return {updateDimensionProperties:{range:{sheetId,dimension:'ROWS',startIndex:r,endIndex:r+1},properties:{pixelSize:px},fields:'pixelSize'}};}
+  function merge(r1,c1,r2,c2){return {mergeCells:{range:{sheetId,startRowIndex:r1,endRowIndex:r2,startColumnIndex:c1,endColumnIndex:c2},mergeType:'MERGE_ALL'}};}
+
+  const requests = [];
+  const b = baseRowIdx;
+
+  // Label année
+  requests.push(merge(b,0,b+1,26));
+  requests.push(rangeFmt(b,0,b+1,26,[bg(C.YEAR_BG),{textFormat:{...fg(C.BRAND),bold:true,fontSize:11}},{horizontalAlignment:'LEFT'}]));
+  requests.push(rowH(b,22));
+
+  // Labels plateformes
+  requests.push(rowH(b+1,16));
+  requests.push(merge(b+1,0,b+2,8));
+  requests.push(rangeFmt(b+1,0,b+2,8,[bg(C.FB_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+  requests.push(merge(b+1,9,b+2,17));
+  requests.push(rangeFmt(b+1,9,b+2,17,[bg(C.IG_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+  requests.push(merge(b+1,18,b+2,26));
+  requests.push(rangeFmt(b+1,18,b+2,26,[bg(C.LK_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+
+  // Headers colonnes
+  requests.push(rowH(b+2,30));
+  requests.push(rangeFmt(b+2,0,b+3,8,[bg(C.FB_BG),{textFormat:{...fg(C.FB_TXT),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+  requests.push(rangeFmt(b+2,9,b+3,17,[bg(C.IG_BG),{textFormat:{...fg(C.IG_TXT),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+  requests.push(rangeFmt(b+2,18,b+3,26,[bg(C.LK_BG),{textFormat:{...fg(C.LK_TXT),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+
+  // Lignes mois
+  for(let m=0; m<12; m++){
+    const r = b+3+m;
+    const bgc = m%2===0 ? C.ROW_ALT : C.WHITE;
+    requests.push(rowH(r,18));
+    requests.push(rangeFmt(r,0,r+1,8,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}}]));
+    requests.push(rangeFmt(r,1,r+1,8,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(r,7,r+1,8,[bg(bgc),{textFormat:{...fg(C.BRAND),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(r,9,r+1,17,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}}]));
+    requests.push(rangeFmt(r,10,r+1,17,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(r,16,r+1,17,[bg(bgc),{textFormat:{...fg(C.BRAND),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(r,18,r+1,26,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}}]));
+    requests.push(rangeFmt(r,19,r+1,26,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(r,25,r+1,26,[bg(bgc),{textFormat:{...fg(C.BRAND),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+  }
+
+  // Totaux
+  const totR = b+15;
+  requests.push(rowH(totR,20));
+  requests.push(rangeFmt(totR,0,totR+1,8,[bg(C.TOT_FB),{textFormat:{...fg(C.FB_TXT),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+  requests.push(rangeFmt(totR,9,totR+1,17,[bg(C.TOT_IG),{textFormat:{...fg(C.IG_TXT),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+  requests.push(rangeFmt(totR,18,totR+1,26,[bg(C.TOT_LK),{textFormat:{...fg(C.LK_TXT),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+
+  await sheetsRequest('POST', ':batchUpdate', { requests });
 }
 
 async function writeToSheets(clientName, platform, data, month){
@@ -1431,7 +1604,13 @@ async function writeToSheets(clientName, platform, data, month){
     toast('Session Google expirée — reconnectez-vous dans Paramètres', true);
     return false;
   }
-  const row = getSheetRowForMonth(month);
+  const parts = month.split(' ');
+  const year = parseInt(parts[1]);
+  const sheetName = clientName.length > 31 ? clientName.slice(0,31) : clientName;
+
+  // S'assurer que la section de l'année existe (crée automatiquement si besoin)
+  const knownYears = await ensureYearExists(sheetName, year);
+  const row = getSheetRowForMonth(month, knownYears);
   if(!row){ toast('Mois invalide', true); return false; }
 
   let values, range;
