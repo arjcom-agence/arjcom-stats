@@ -951,6 +951,25 @@ function selectChannel(c){ state.channel=c; document.getElementById('ch-wa').cla
 
 // ── Paramètres ──
 function saveApiKey(){ state.apiKey=document.getElementById('api-key-inp').value.trim(); localStorage.setItem('arjcom-apikey',state.apiKey); toast('Clé API enregistrée'); }
+// ── Constantes Sheets ──
+const MOIS_LIST_G = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const ROWS_PER_YEAR = 17;
+const BASE_ROW = 6;
+const FIXED_ROWS = 2;
+const sheetYearsCache = {};
+
+function getSheetRowForMonth(monthStr, knownYears){
+  const parts = monthStr.split(' ');
+  const moisName = parts[0];
+  const year = parseInt(parts[1]);
+  const yearIdx = knownYears.indexOf(year);
+  if(yearIdx === -1) return null;
+  const moisIdx = MOIS_LIST_G.indexOf(moisName);
+  if(moisIdx === -1) return null;
+  const dataStart = BASE_ROW + (yearIdx * ROWS_PER_YEAR);
+  return dataStart + moisIdx;
+}
+
 // ── Google OAuth + Sheets bidirectionnel ──
 let googleAccessToken = localStorage.getItem('arjcom-gtoken') || '';
 let tokenExpiry = parseInt(localStorage.getItem('arjcom-gtoken-expiry') || '0');
@@ -1074,8 +1093,6 @@ async function loadClientsFromSheets(){
 
 // Lire les données d'un client depuis le Sheets
 async function loadClientDataFromSheets(clientName){
-  const MOIS_LIST = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-  const YEARS_LIST = [2026, 2025, 2024];
   const safe = clientName.length > 31 ? clientName.slice(0,31) : clientName;
   try {
     // Lire FB (A:H) et IG (J:Q) pour toutes les années
@@ -1088,7 +1105,7 @@ async function loadClientDataFromSheets(clientName){
     const fbRows = []; const igRows = [];
     const parseFB = (rows) => {
       (rows || []).forEach(r => {
-        if(!r[0] || !MOIS_LIST.some(m => r[0].startsWith(m))) return;
+        if(!r[0] || !MOIS_LIST_G.some(m => r[0].startsWith(m))) return;
         if(!r[2] && !r[3]) return; // ligne vide
         fbRows.push({
           month: r[0], abonnes: parseInt(r[1])||0, posts: parseInt(r[2])||0,
@@ -1100,7 +1117,7 @@ async function loadClientDataFromSheets(clientName){
     };
     const parseIG = (rows) => {
       (rows || []).forEach(r => {
-        if(!r[0] || !MOIS_LIST.some(m => r[0].startsWith(m))) return;
+        if(!r[0] || !MOIS_LIST_G.some(m => r[0].startsWith(m))) return;
         if(!r[2] && !r[4]) return;
         igRows.push({
           month: r[0], abonnes: parseInt(r[1])||0, publications: parseInt(r[2])||0,
@@ -1404,33 +1421,7 @@ async function deleteSheetTab(clientName){
 // IG  : J=Mois K=Communauté L=Publications M=Réels N=Couverture O=Impressions P=Engagement Q=Taux
 // LK  : S=Mois T=Abonnés U=Publications V=Impressions W=Couverture X=Engagement Y=Clics Z=Taux
 
-const MOIS_LIST = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const ROWS_PER_YEAR = 17; // label + platHeader + colHeader + 12mois + total + spacer
-const BASE_ROW = 6; // première ligne de données (row 1-indexed)
-const FIXED_ROWS = 2; // bandeau + spacer
 
-// Calcule le row index 1-based pour un mois/année donné
-// Les années sont en ordre DÉCROISSANT : la plus récente en haut
-// Année à l'index 0 = année la plus récente dans le sheet
-function getYearIndex(year, knownYears){
-  // knownYears = liste triée décroissante des années présentes dans le sheet
-  return knownYears.indexOf(year);
-}
-
-function getSheetRowForMonth(monthStr, knownYears){
-  const parts = monthStr.split(' ');
-  const moisName = parts[0];
-  const year = parseInt(parts[1]);
-  const yearIdx = knownYears.indexOf(year);
-  if(yearIdx === -1) return null;
-  const moisIdx = MOIS_LIST.indexOf(moisName);
-  if(moisIdx === -1) return null;
-  const dataStart = BASE_ROW + (yearIdx * ROWS_PER_YEAR);
-  return dataStart + moisIdx;
-}
-
-// Cache des années connues par onglet client
-const sheetYearsCache = {};
 
 // getSheetRowForMonth défini dans les constantes ci-dessus
 
@@ -1490,7 +1481,7 @@ async function ensureYearExists(sheetName, year){
     ["FACEBOOK","","","","","","","","","INSTAGRAM","","","","","","","","","LINKEDIN"],
     [...FB_HDR,"", ...IG_HDR,"", ...LK_HDR]
   ];
-  MOIS_LIST.forEach(mois => {
+  MOIS_LIST_G.forEach(mois => {
     sectionValues.push([mois,"","","","","","","","", mois,"","","","","","","","", mois,"","","","","","",""]);
   });
   sectionValues.push(["Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel"]);
@@ -1614,7 +1605,6 @@ async function writeToSheets(clientName, platform, data, month){
   if(!row){ toast('Mois invalide', true); return false; }
 
   let values, range;
-  const sheetName = clientName.length > 31 ? clientName.slice(0,31) : clientName;
 
   if(platform === 'fb'){
     // A:H — Mois | Abonnés | Posts | Couverture | Impressions | Engagement | Clics | Taux
