@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arjcom — Stats</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -356,7 +357,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
             <div class="dok" id="ig-fname"></div>
           </div>
           <div class="drop" id="dz-lk" style="display:none" ondragover="dzOver(event,'lk')" ondragleave="dzLeave('lk')" ondrop="dzDrop(event,'lk')">
-            <input type="file" accept=".csv" onchange="fileChosen(event,'lk')">
+            <input type="file" accept=".xls,.xlsx,.csv" onchange="fileChosen(event,'lk')">
             <div class="di" style="background:rgba(26,86,204,0.15)" id="dz-lk-icon">
               <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#7baaf7" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>
             </div>
@@ -745,11 +746,17 @@ function readFile(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 
 async function readAndParse(f, p){
   try {
-    const text = await readFile(f);
-    const data = p==='fb' ? extractFB(text) : extractIG(text);
-    if(p==='fb') state.fbData=data; else state.igData=data;
-    showPreview(p, data);
-  } catch(e){ toast('Erreur de lecture du fichier CSV',true); }
+    if(p === 'lk'){
+      const data = await extractLK(f);
+      state.lkData = data;
+      showPreview('lk', data);
+    } else {
+      const text = await readFile(f);
+      const data = p==='fb' ? extractFB(text) : extractIG(text);
+      if(p==='fb') state.fbData=data; else state.igData=data;
+      showPreview(p, data);
+    }
+  } catch(e){ toast('Erreur de lecture du fichier',true); console.error(e); }
 }
 
 function parseMetaCSV(raw){
@@ -788,6 +795,58 @@ function extractFB(raw){
   return{posts,couverture,impressions,engagement,clics,taux};
 }
 
+// ── Extraction LinkedIn XLS ──
+async function extractLK(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        // Lire le XLS via une lib JS légère — SheetJS
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+
+        // Onglet Indicateurs — impressions uniques (col index 4, journalier)
+        const wsInd = wb.Sheets[wb.SheetNames[0]];
+        const indRows = XLSX.utils.sheet_to_json(wsInd, {header:1, defval:0});
+        let impressionsUniques = 0;
+        for(let i=2; i<indRows.length; i++){
+          impressionsUniques += parseFloat(indRows[i][4]) || 0;
+        }
+
+        // Onglet Posts
+        const wsPosts = wb.Sheets[wb.SheetNames[1]];
+        const postRows = XLSX.utils.sheet_to_json(wsPosts, {header:1, defval:0});
+        let impressions=0, clics=0, likes=0, commentaires=0, republications=0;
+        for(let i=2; i<postRows.length; i++){
+          impressions    += parseFloat(postRows[i][9])  || 0;
+          clics          += parseFloat(postRows[i][12]) || 0;
+          likes          += parseFloat(postRows[i][14]) || 0;
+          commentaires   += parseFloat(postRows[i][15]) || 0;
+          republications += parseFloat(postRows[i][16]) || 0;
+        }
+        const publications = postRows.length - 2;
+        const engagement = likes + commentaires + republications;
+        const couverture = Math.round(impressionsUniques);
+        const taux = couverture > 0
+          ? (engagement/couverture*100).toFixed(2).replace('.',',')+'%'
+          : '0%';
+
+        resolve({
+          posts: publications,
+          publications,
+          impressions: Math.round(impressions),
+          couverture,
+          engagement: Math.round(engagement),
+          clics: Math.round(clics),
+          taux
+        });
+      } catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function extractIG(raw){
   const{header,rows}=parseMetaCSV(raw);
   // Colonnes Instagram réelles : Vues=Impressions, Couverture, Mentions J'aime, Commentaires, Partages
@@ -817,13 +876,16 @@ function showPreview(p, data){
   const card=document.getElementById('preview-card'); card.style.display='';
   const month=document.getElementById('import-month-sel').value||'Mois non sélectionné';
   const c=getClient();
-  document.getElementById('preview-title').textContent=`Données extraites — ${p==='fb'?'Facebook':'Instagram'}`;
+  document.getElementById('preview-title').textContent=`Données extraites — ${p==='fb'?'Facebook':p==='ig'?'Instagram':'LinkedIn'}`;
   document.getElementById('preview-sub').textContent=`${c?c.name:'Client'} · ${month} · ${data.posts} publications`;
-  const metrics=p==='fb'?[
+  const metrics = p==='fb' ? [
     {l:'Posts',v:data.posts},{l:'Couverture',v:fmt(data.couverture)},{l:'Impressions',v:fmt(data.impressions)},
     {l:'Engagement',v:fmt(data.engagement)},{l:'Clics totaux',v:fmt(data.clics)},{l:"Taux d'eng.",v:data.taux,r:true}
-  ]:[
+  ] : p==='ig' ? [
     {l:'Publications',v:data.publications},{l:'Couverture',v:fmt(data.couverture)},{l:'Impressions',v:fmt(data.impressions)},
+    {l:'Engagement',v:fmt(data.engagement)},{l:'Clics',v:fmt(data.clics)},{l:"Taux d'eng.",v:data.taux,r:true}
+  ] : [
+    {l:'Publications',v:data.publications},{l:'Couverture (uniques)',v:fmt(data.couverture)},{l:'Impressions',v:fmt(data.impressions)},
     {l:'Engagement',v:fmt(data.engagement)},{l:'Clics',v:fmt(data.clics)},{l:"Taux d'eng.",v:data.taux,r:true}
   ];
   document.getElementById('preview-metrics').innerHTML=metrics.map(m=>`<div class="pm"><div class="pml">${m.l}</div><div class="pmv${m.r?' r':''}">${m.v}</div></div>`).join('');
@@ -871,11 +933,15 @@ function resetImport(){
   document.getElementById('preview-card').style.display='none';
   document.getElementById('fb-fname').textContent='';
   document.getElementById('ig-fname').textContent='';
-  ['fb','ig'].forEach(p=>{
-    const dz=document.getElementById('dz-'+p); dz.classList.remove('ok'); dz.style.borderColor='';
+  ['fb','ig','lk'].forEach(p=>{
+    const dz=document.getElementById('dz-'+p); if(!dz) return;
+    dz.classList.remove('ok'); dz.style.borderColor='';
     const icon=document.getElementById('dz-'+p+'-icon');
-    icon.style.background=p==='fb'?'rgba(24,95,165,0.15)':'rgba(153,53,86,0.15)';
-    icon.innerHTML=p==='fb'?'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#85b7eb" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>':'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#ed93b1" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>';
+    if(!icon) return;
+    const colors={'fb':'rgba(24,95,165,0.15)','ig':'rgba(153,53,86,0.15)','lk':'rgba(26,86,204,0.15)'};
+    const strokes={'fb':'#85b7eb','ig':'#ed93b1','lk':'#7baaf7'};
+    icon.style.background=colors[p];
+    icon.innerHTML=`<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="${strokes[p]}" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>`;
   });
   document.getElementById('abonnes-input').value='';
 }
