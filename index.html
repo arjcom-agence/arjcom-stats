@@ -1217,10 +1217,10 @@ async function loadClientDataFromSheets(clientName){
     parseRows(igRes.values, r => {
       if(!r[2] && !r[4]) return;
       igRows.push({
-        month: r[0], abonnes: parseInt(r[1])||0, publications: parseInt(r[2])||0,
-        reels: parseInt(r[3])||0, couverture: parseInt(r[4])||0,
-        impressions: parseInt(r[5])||0, engagement: parseInt(r[6])||0,
-        taux: r[7] || '', posts: parseInt(r[2])||0
+        month: r[0], abonnes: parseNum(r[1]), publications: parseNum(r[2]),
+        reels: parseNum(r[3]), couverture: parseNum(r[4]),
+        impressions: parseNum(r[5]), engagement: parseNum(r[6]),
+        taux: r[7] || '', posts: parseNum(r[2])
       });
     });
 
