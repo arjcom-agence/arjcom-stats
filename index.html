@@ -973,59 +973,193 @@ function selTrimestre(n,el){
   renderReport();
 }
 function renderReport(){
-  const c=getClient(); if(!c) return;
-  const fbRows=c.data.fb||[]; const igRows=c.data.ig||[];
-  const months=(t)=>{const m=(t-1)*3;return[m+1,m+2,m+3];};
-  const mNames=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const sumFB=(ms,key)=>fbRows.filter(r=>ms.some(m=>r.month&&r.month.startsWith(mNames[m-1]))).reduce((a,r)=>a+(parseInt(r[key])||0),0);
-  const sumIG=(ms,key)=>igRows.filter(r=>ms.some(m=>r.month&&r.month.startsWith(mNames[m-1]))).reduce((a,r)=>a+(parseInt(r[key])||0),0);
-  const t1=months(currentTri>1?currentTri-1:4); const t2=months(currentTri);
-  document.getElementById('fb-t1-couv').textContent=fmt(sumFB(t1,'couverture'));
-  document.getElementById('fb-t2-couv').textContent=fmt(sumFB(t2,'couverture'));
-  document.getElementById('fb-t1-eng').textContent=fmt(sumFB(t1,'engagement'));
-  document.getElementById('fb-t2-eng').textContent=fmt(sumFB(t2,'engagement'));
-  document.getElementById('ig-t1-imp').textContent=fmt(sumIG(t1,'impressions'));
-  document.getElementById('ig-t2-imp').textContent=fmt(sumIG(t2,'impressions'));
-  document.getElementById('ig-t1-eng').textContent=fmt(sumIG(t1,'engagement'));
-  document.getElementById('ig-t2-eng').textContent=fmt(sumIG(t2,'engagement'));
+  const c = getClient(); if(!c) return;
+  const fbRows = c.data.fb||[]; const igRows = c.data.ig||[]; const lkRows = c.data.lk||[];
+  const mNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const triMonths = (t) => { const m=(t-1)*3; return [m+1,m+2,m+3]; };
+  const prevTri = (t) => t > 1 ? t-1 : 4;
+
+  const sumRows = (rows, ms, key) => rows
+    .filter(r => ms.some(m => r.month && r.month.toLowerCase().startsWith(mNames[m-1].toLowerCase())))
+    .reduce((a,r) => a + (parseFloat(String(r[key]).replace(',','.')) || 0), 0);
+
+  const avgRows = (rows, ms, key) => {
+    const filtered = rows.filter(r => ms.some(m => r.month && r.month.toLowerCase().startsWith(mNames[m-1].toLowerCase())));
+    if(!filtered.length) return 0;
+    return filtered.reduce((a,r) => a + (parseFloat(String(r[key]).replace(',','.')) || 0), 0) / filtered.length;
+  };
+
+  const lastAbonnes = (rows, ms) => {
+    const filtered = rows.filter(r => ms.some(m => r.month && r.month.toLowerCase().startsWith(mNames[m-1].toLowerCase())));
+    return filtered.length ? filtered[filtered.length-1].abonnes || 0 : 0;
+  };
+  const firstAbonnes = (rows, ms) => {
+    const filtered = rows.filter(r => ms.some(m => r.month && r.month.toLowerCase().startsWith(mNames[m-1].toLowerCase())));
+    return filtered.length ? filtered[0].abonnes || 0 : 0;
+  };
+
+  const t2 = triMonths(currentTri);
+  const t1 = triMonths(prevTri(currentTri));
+  const yr = new Date().getFullYear();
+  const t1lbl = `T${prevTri(currentTri)} ${currentTri===1?yr-1:yr}`;
+  const t2lbl = `T${currentTri} ${yr}`;
+
+  // Mettre à jour les labels
+  ['fb-t1-lbl','fb-t1-lbl2'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=t1lbl; });
+  ['fb-t2-lbl','fb-t2-lbl2'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=t2lbl; });
+  ['fb-cmp-period','ig-cmp-period'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=`${t2lbl} vs ${t1lbl}`; });
+
+  // FB
+  const fbCouv1=sumRows(fbRows,t1,'couverture'), fbCouv2=sumRows(fbRows,t2,'couverture');
+  const fbEng1=sumRows(fbRows,t1,'engagement'), fbEng2=sumRows(fbRows,t2,'engagement');
+  document.getElementById('fb-t1-couv').textContent = fmt(fbCouv1);
+  document.getElementById('fb-t2-couv').textContent = fmt(fbCouv2);
+  document.getElementById('fb-t1-eng').textContent = fmt(fbEng1);
+  document.getElementById('fb-t2-eng').textContent = fmt(fbEng2);
+
+  // IG
+  const igImp1=sumRows(igRows,t1,'impressions'), igImp2=sumRows(igRows,t2,'impressions');
+  const igEng1=sumRows(igRows,t1,'engagement'), igEng2=sumRows(igRows,t2,'engagement');
+  document.getElementById('ig-t1-imp').textContent = fmt(igImp1);
+  document.getElementById('ig-t2-imp').textContent = fmt(igImp2);
+  document.getElementById('ig-t1-eng').textContent = fmt(igEng1);
+  document.getElementById('ig-t2-eng').textContent = fmt(igEng2);
+
+  // Badges delta
   const delta=(a,b)=>{if(!a)return'';const d=Math.round((b-a)/a*100);return d>=0?`+${d}%`:`${d}%`;};
-  const setBadge=(id,a,b)=>{ const el=document.getElementById(id); const d=delta(a,b); el.textContent=d; el.className=d.startsWith('-')?'badge-dn':'badge-up'; };
-  setBadge('fb-couv-delta',sumFB(t1,'couverture'),sumFB(t2,'couverture'));
-  setBadge('fb-eng-delta',sumFB(t1,'engagement'),sumFB(t2,'engagement'));
-  setBadge('ig-imp-delta',sumIG(t1,'impressions'),sumIG(t2,'impressions'));
-  setBadge('ig-eng-delta',sumIG(t1,'engagement'),sumIG(t2,'engagement'));
+  const setBadge=(id,a,b)=>{const el=document.getElementById(id);if(!el)return;const d=delta(a,b);el.textContent=d;el.className=d.startsWith('-')?'badge-dn':'badge-up';};
+  setBadge('fb-couv-delta',fbCouv1,fbCouv2);
+  setBadge('fb-eng-delta',fbEng1,fbEng2);
+  setBadge('ig-imp-delta',igImp1,igImp2);
+  setBadge('ig-eng-delta',igEng1,igEng2);
+
+  // Stocker les données du trimestre pour generateMessage
+  window._reportData = {
+    client: c.name, secteur: c.secteur||'', ton: c.ton||'Professionnel',
+    trimestre: t2lbl, trimestrePrev: t1lbl,
+    fb: {
+      couverture: fbCouv2, couverturePrev: fbCouv1,
+      impressions: sumRows(fbRows,t2,'impressions'),
+      engagement: fbEng2, engagementPrev: fbEng1,
+      posts: sumRows(fbRows,t2,'posts'),
+      abonnesDebut: firstAbonnes(fbRows,t2), abonnesFin: lastAbonnes(fbRows,t2),
+      taux: avgRows(fbRows,t2,'taux').toFixed(2)+'%'
+    },
+    ig: {
+      couverture: sumRows(igRows,t2,'couverture'),
+      impressions: igImp2, impressionsPrev: igImp1,
+      engagement: igEng2, engagementPrev: igEng1,
+      publications: sumRows(igRows,t2,'publications'),
+      abonnesDebut: firstAbonnes(igRows,t2), abonnesFin: lastAbonnes(igRows,t2),
+      taux: avgRows(igRows,t2,'taux').toFixed(2)+'%'
+    },
+    lk: lkRows.length ? {
+      impressions: sumRows(lkRows,t2,'impressions'),
+      couverture: sumRows(lkRows,t2,'couverture'),
+      engagement: sumRows(lkRows,t2,'engagement'),
+      publications: sumRows(lkRows,t2,'publications'),
+      abonnesDebut: firstAbonnes(lkRows,t2), abonnesFin: lastAbonnes(lkRows,t2),
+      taux: avgRows(lkRows,t2,'taux').toFixed(2)+'%'
+    } : null
+  };
 }
 
 // ── Génération IA ──
 async function generateMessage(){
-  const apiKey=state.apiKey; if(!apiKey){ toast('Clé API Claude manquante — allez dans Paramètres',true); return; }
-  const c=getClient(); if(!c){ toast('Sélectionnez un client',true); return; }
-  const ctx=document.getElementById('ctx-input').value;
-  const out=document.getElementById('msg-output');
-  out.innerHTML='<span class="msg-placeholder">Génération en cours...</span>';
-  document.getElementById('btn-copy').style.display='none';
-  document.getElementById('btn-regen').style.display='none';
-  const fbRows=c.data.fb||[]; const igRows=c.data.ig||[];
-  const prompt=`Tu es community manager dans une agence de communication. Rédige un message de bilan trimestriel pour le client "${c.name}" (secteur: ${c.secteur||'non précisé'}).
-Ton souhaité: ${c.ton||'Chaleureux'}.
-Canal: ${state.channel==='wa'?'WhatsApp (message court, direct, émojis bienvenus)':'Email (légèrement plus formel, structure claire)'}.
-Données Facebook (derniers mois disponibles): ${JSON.stringify(fbRows.slice(-3))}.
-Données Instagram (derniers mois disponibles): ${JSON.stringify(igRows.slice(-3))}.
-Contexte additionnel du CM: ${ctx||'aucun'}.
-Rédige uniquement le message, sans explication, prêt à être envoyé. Termine par "L'équipe Arjcom".`;
+  const apiKey = state.apiKey;
+  if(!apiKey){ toast('Clé API Claude manquante — allez dans Paramètres', true); return; }
+  const c = getClient();
+  if(!c){ toast('Sélectionnez un client', true); return; }
+
+  renderReport(); // S'assurer que _reportData est à jour
+  const d = window._reportData;
+  const ctx = document.getElementById('ctx-input').value.trim();
+  const out = document.getElementById('msg-output');
+  out.innerHTML = '<span class="msg-placeholder">Génération en cours...</span>';
+  document.getElementById('btn-copy').style.display = 'none';
+  document.getElementById('btn-regen').style.display = 'none';
+
+  // Construire le résumé des données pour le prompt
+  let dataSummary = '';
+
+  if(d.fb.couverture || d.fb.impressions){
+    dataSummary += `Facebook — ${d.trimestre} :
+- Couverture : ${fmt(d.fb.couverture)}${d.fb.couverturePrev ? ` (vs ${fmt(d.fb.couverturePrev)} le trimestre précédent)` : ''}
+- Impressions : ${fmt(d.fb.impressions)}
+- Engagement : ${fmt(d.fb.engagement)}${d.fb.engagementPrev ? ` (vs ${fmt(d.fb.engagementPrev)})` : ''}
+- Publications : ${d.fb.posts}
+${d.fb.abonnesFin ? `- Abonnés en fin de période : ${fmt(d.fb.abonnesFin)}` : ''}
+
+`;
+  }
+
+  if(d.ig.couverture || d.ig.impressions){
+    dataSummary += `Instagram — ${d.trimestre} :
+- Couverture : ${fmt(d.ig.couverture)}
+- Impressions : ${fmt(d.ig.impressions)}${d.ig.impressionsPrev ? ` (vs ${fmt(d.ig.impressionsPrev)} le trimestre précédent)` : ''}
+- Engagement : ${fmt(d.ig.engagement)}${d.ig.engagementPrev ? ` (vs ${fmt(d.ig.engagementPrev)})` : ''}
+- Publications : ${d.ig.publications}
+${d.ig.abonnesFin ? `- Abonnés en fin de période : ${fmt(d.ig.abonnesFin)}` : ''}
+
+`;
+  }
+
+  if(d.lk){
+    dataSummary += `LinkedIn — ${d.trimestre} :
+- Impressions : ${fmt(d.lk.impressions)}
+- Couverture unique : ${fmt(d.lk.couverture)}
+- Engagement : ${fmt(d.lk.engagement)}
+- Publications : ${d.lk.publications}
+${d.lk.abonnesFin ? `- Abonnés en fin de période : ${fmt(d.lk.abonnesFin)}` : ''}
+
+`;
+  }
+
+  const prompt = `Tu es community manager dans une agence de communication digitale. Rédige un bilan trimestriel à destination du client "${d.client}"${d.secteur ? ` (secteur : ${d.secteur})` : ''} pour la période ${d.trimestre}.
+
+Voici les données de la période :
+${dataSummary}
+${ctx ? `Contexte particulier à mentionner : ${ctx}` : ''}
+
+Consignes de rédaction :
+- Ton professionnel et valorisant — met en avant les points positifs
+- Mentionne uniquement les métriques significatives (pas toutes)
+- Si une métrique a progressé vs le trimestre précédent, souligne-le
+- Pas de titre, pas de liste à puces — du texte fluide en 3-4 paragraphes courts
+- Commence directement par le bilan, sans formule d'introduction générique
+- Termine par "L'équipe Arjcom"
+- Longueur : 150 à 200 mots maximum
+- Rédige uniquement le texte final, sans explication ni commentaire`;
+
   try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
     });
-    const data=await res.json();
-    if(data.error){ toast('Erreur API : '+data.error.message,true); out.innerHTML='<span class="msg-placeholder">Erreur — vérifiez votre clé API dans les Paramètres.</span>'; return; }
-    const msg=data.content[0].text;
-    out.textContent=msg;
-    document.getElementById('btn-copy').style.display='';
-    document.getElementById('btn-regen').style.display='';
-  } catch(e){ toast('Erreur réseau',true); out.innerHTML='<span class="msg-placeholder">Erreur de connexion.</span>'; }
+    const data = await res.json();
+    if(data.error){
+      toast('Erreur API : ' + data.error.message, true);
+      out.innerHTML = '<span class="msg-placeholder">Erreur — vérifiez votre clé API dans les Paramètres.</span>';
+      return;
+    }
+    const msg = data.content[0].text;
+    out.textContent = msg;
+    document.getElementById('btn-copy').style.display = '';
+    document.getElementById('btn-regen').style.display = '';
+  } catch(e){
+    toast('Erreur réseau', true);
+    out.innerHTML = '<span class="msg-placeholder">Erreur de connexion.</span>';
+  }
 }
 
 function copyMessage(){ navigator.clipboard.writeText(document.getElementById('msg-output').textContent); toast('Message copié !'); }
