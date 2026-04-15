@@ -1189,8 +1189,11 @@ async function loadClientDataFromSheets(clientName){
 
     const parseRows = (rows, handler) => {
       (rows || []).forEach(r => {
-        if(!r[0] || !MOIS_LIST_G.some(m => r[0].startsWith(m))) return;
-        handler(r);
+        if(!r[0]) return;
+        // Normaliser le mois — mettre la première lettre en majuscule
+        const normalized = r[0].charAt(0).toUpperCase() + r[0].slice(1);
+        if(!MOIS_LIST_G.some(m => normalized.startsWith(m))) return;
+        handler([normalized, ...r.slice(1)]);
       });
     };
 
