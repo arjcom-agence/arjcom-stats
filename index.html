@@ -1190,7 +1190,7 @@ async function loadClientDataFromSheets(clientName){
     // Parser robuste pour les nombres — gère espaces, virgules, points
     const parseNum = (v) => {
       if(!v && v !== 0) return 0;
-      const s = String(v).replace(/\s/g,'').replace(',','.');
+      const s = String(v).split(' ').join('').split(' ').join('').replace(',','.');
       return parseInt(s) || 0;
     };
 
