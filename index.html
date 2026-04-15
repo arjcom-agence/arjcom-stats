@@ -294,6 +294,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
         <div class="ptabs" id="dash-ptabs">
           <div class="pt fb" onclick="switchPlatform('fb',this)"><div class="dot dot-fb"></div>Facebook</div>
           <div class="pt" onclick="switchPlatform('ig',this)"><div class="dot dot-ig"></div>Instagram</div>
+          <div class="pt" id="tab-lk" onclick="switchPlatform('lk',this)" style="display:none"><div class="dot" style="background:#1a56cc"></div>LinkedIn</div>
         </div>
         <div class="mgrid" id="dash-metrics">
           <div class="mc acc"><div class="ml">Posts</div><div class="mv" id="d-posts">—</div></div>
@@ -667,16 +668,25 @@ function renderDashboard(){
   const c = getClient(); if(!c) return;
   const rows = c.data[state.currentPlatform] || [];
   const last = rows[rows.length-1];
+  const p = state.currentPlatform;
+  // Adapter les labels des métriques selon la plateforme
+  document.querySelector('#dash-metrics .mc:first-child .ml').textContent = p==='ig'?'Publications':'Posts';
   if(last){
-    document.getElementById('d-posts').textContent = last.posts || '—';
+    document.getElementById('d-posts').textContent = (p==='ig'||p==='lk') ? (last.publications||last.posts||'—') : (last.posts||'—');
     document.getElementById('d-abonnes').textContent = last.abonnes ? fmt(last.abonnes) : '—';
     document.getElementById('d-couverture').textContent = last.couverture ? fmt(last.couverture) : '—';
     document.getElementById('d-impressions').textContent = last.impressions ? fmt(last.impressions) : '—';
     document.getElementById('d-engagement').textContent = last.engagement ? fmt(last.engagement) : '—';
     document.getElementById('d-taux').textContent = last.taux || '—';
+  } else {
+    ['d-posts','d-abonnes','d-couverture','d-impressions','d-engagement','d-taux'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent='—';
+    });
   }
   renderBars(rows);
-  renderHistTableFB(c.data[state.currentPlatform] || []);
+  const pData = state.currentPlatform === 'lk' ? (c.data.lk || []) :
+                state.currentPlatform === 'ig' ? (c.data.ig || []) : (c.data.fb || []);
+  renderHistTableFB(pData);
 }
 
 function renderBars(rows){
@@ -701,12 +711,18 @@ function drawBars(id, data, labels, color){
 
 function renderHistTableFB(rows){
   const p = state.currentPlatform;
+  // Afficher/masquer l'onglet LinkedIn selon config client
+  const c2 = getClient();
+  const lkTab = document.getElementById('tab-lk');
+  if(lkTab) lkTab.style.display = (c2 && c2.plats.includes('lk')) ? '' : 'none';
   const tbody = document.getElementById('hist-body-fb');
   const titleEl = document.getElementById('hist-title');
   if(titleEl) titleEl.textContent = (p==='fb'?'Historique Facebook':'Historique Instagram')+' — 2026';
   const thead = tbody.closest('table').querySelector('thead tr');
   if(p==='ig'){
     thead.innerHTML='<th>Mois</th><th>Publications</th><th>Réels</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Taux</th>';
+  } else if(p==='lk'){
+    thead.innerHTML='<th>Mois</th><th>Publications</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th>';
   } else {
     thead.innerHTML='<th>Mois</th><th>Posts</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th>';
   }
@@ -714,12 +730,12 @@ function renderHistTableFB(rows){
   tbody.innerHTML = [...rows].reverse().map((r,i)=>`
     <tr${i===0?' class="cur"':''}>
       <td><strong>${r.month}</strong></td>
-      ${p==='ig'?`<td>${r.publications||r.posts||'—'}</td><td>${r.reels||'0'}</td>`:`<td>${r.posts||'—'}</td>`}
+      ${p==='ig'?`<td>${r.publications||r.posts||'—'}</td><td>${r.reels||'0'}</td>`:p==='lk'?`<td>${r.publications||r.posts||'—'}</td>`:`<td>${r.posts||'—'}</td>`}
       <td>${r.abonnes?fmt(r.abonnes):'—'}</td>
       <td>${r.couverture?fmt(r.couverture):'—'}</td>
       <td>${r.impressions?fmt(r.impressions):'—'}</td>
       <td>${r.engagement?fmt(r.engagement):'—'}</td>
-      ${p==='ig'?'':`<td>${r.clics?fmt(r.clics):'—'}</td>`}
+      <td>${r.clics?fmt(r.clics):'—'}</td>
       <td class="rate">${r.taux||'—'}</td>
     </tr>`).join('');
 }
@@ -1161,46 +1177,59 @@ async function loadClientsFromSheets(){
 async function loadClientDataFromSheets(clientName){
   const safe = clientName.length > 31 ? clientName.slice(0,31) : clientName;
   try {
-    // Lire FB (A:H) et IG (J:Q) pour toutes les années
     const rangeFB = `'${safe}'!A1:H200`;
     const rangeIG = `'${safe}'!J1:Q200`;
-    const [fbRes, igRes] = await Promise.all([
+    const rangeLK = `'${safe}'!S1:Z200`;
+    const [fbRes, igRes, lkRes] = await Promise.all([
       sheetsRequest('GET', `/values/${encodeURIComponent(rangeFB)}`),
-      sheetsRequest('GET', `/values/${encodeURIComponent(rangeIG)}`)
+      sheetsRequest('GET', `/values/${encodeURIComponent(rangeIG)}`),
+      sheetsRequest('GET', `/values/${encodeURIComponent(rangeLK)}`)
     ]);
-    const fbRows = []; const igRows = [];
-    const parseFB = (rows) => {
+    const fbRows = []; const igRows = []; const lkRows = [];
+
+    const parseRows = (rows, handler) => {
       (rows || []).forEach(r => {
         if(!r[0] || !MOIS_LIST_G.some(m => r[0].startsWith(m))) return;
-        if(!r[2] && !r[3]) return; // ligne vide
-        fbRows.push({
-          month: r[0], abonnes: parseInt(r[1])||0, posts: parseInt(r[2])||0,
-          couverture: parseInt(r[3])||0, impressions: parseInt(r[4])||0,
-          engagement: parseInt(r[5])||0, clics: parseInt(r[6])||0,
-          taux: r[7] || ''
-        });
+        handler(r);
       });
     };
-    const parseIG = (rows) => {
-      (rows || []).forEach(r => {
-        if(!r[0] || !MOIS_LIST_G.some(m => r[0].startsWith(m))) return;
-        if(!r[2] && !r[4]) return;
-        igRows.push({
-          month: r[0], abonnes: parseInt(r[1])||0, publications: parseInt(r[2])||0,
-          reels: parseInt(r[3])||0, couverture: parseInt(r[4])||0,
-          impressions: parseInt(r[5])||0, engagement: parseInt(r[6])||0,
-          taux: r[7] || '', posts: parseInt(r[2])||0
-        });
+
+    parseRows(fbRes.values, r => {
+      if(!r[2] && !r[3]) return;
+      fbRows.push({
+        month: r[0], abonnes: parseInt(r[1])||0, posts: parseInt(r[2])||0,
+        couverture: parseInt(r[3])||0, impressions: parseInt(r[4])||0,
+        engagement: parseInt(r[5])||0, clics: parseInt(r[6])||0,
+        taux: r[7] || ''
       });
-    };
-    parseFB(fbRes.values);
-    parseIG(igRes.values);
+    });
+
+    parseRows(igRes.values, r => {
+      if(!r[2] && !r[4]) return;
+      igRows.push({
+        month: r[0], abonnes: parseInt(r[1])||0, publications: parseInt(r[2])||0,
+        reels: parseInt(r[3])||0, couverture: parseInt(r[4])||0,
+        impressions: parseInt(r[5])||0, engagement: parseInt(r[6])||0,
+        taux: r[7] || '', posts: parseInt(r[2])||0
+      });
+    });
+
+    parseRows(lkRes.values, r => {
+      if(!r[2] && !r[3]) return;
+      lkRows.push({
+        month: r[0], abonnes: parseInt(r[1])||0, publications: parseInt(r[2])||0,
+        impressions: parseInt(r[3])||0, couverture: parseInt(r[4])||0,
+        engagement: parseInt(r[5])||0, clics: parseInt(r[6])||0,
+        taux: r[7] || '', posts: parseInt(r[2])||0
+      });
+    });
+
     const c = getClient();
-    if(c){ c.data.fb = fbRows; c.data.ig = igRows; saveClients(); }
-    return { fb: fbRows, ig: igRows };
+    if(c){ c.data.fb = fbRows; c.data.ig = igRows; c.data.lk = lkRows; saveClients(); }
+    return { fb: fbRows, ig: igRows, lk: lkRows };
   } catch(e){
     toast('Erreur lecture données : ' + e.message, true);
-    return { fb:[], ig:[] };
+    return { fb:[], ig:[], lk:[] };
   }
 }
 
