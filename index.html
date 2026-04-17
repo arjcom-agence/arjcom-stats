@@ -306,6 +306,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
         </div>
         <div class="r2">
           <div class="card"><div class="ch"><span class="ct">Couverture mensuelle</span><span class="cs">6 derniers mois</span></div><div class="bars" id="bc"></div></div>
+          <div class="card"><div class="ch"><span class="ct">Abonnés</span><span class="cs">6 derniers mois</span></div><div class="bars" id="ba"></div></div>
           <div class="card"><div class="ch"><span class="ct">Taux d'engagement</span><span class="cs">6 derniers mois</span></div><div class="bars" id="be"></div></div>
         </div>
         <div class="card">
@@ -396,11 +397,12 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
       <div class="panel" id="p-report">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
           <div class="psel-row" id="trimestre-sel">
-            <div class="psel" onclick="selTrimestre(1,this)">T1 2026</div>
-            <div class="psel on" onclick="selTrimestre(2,this)">T2 2026</div>
-            <div class="psel" onclick="selTrimestre(3,this)">T3 2026</div>
-            <div class="psel" onclick="selTrimestre(4,this)">T4 2026</div>
+            <div class="psel" onclick="selTrimestre(1,this)">T1</div>
+            <div class="psel on" onclick="selTrimestre(2,this)">T2</div>
+            <div class="psel" onclick="selTrimestre(3,this)">T3</div>
+            <div class="psel" onclick="selTrimestre(4,this)">T4</div>
           </div>
+          <div class="psel-row" id="annee-sel" style="margin-left:8px"></div>
           <div class="pill-brand" id="trimestre-label">Janv — Mars 2026</div>
         </div>
         <div class="r2g">
@@ -436,10 +438,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
               <div class="ai-t">Message client généré par IA</div>
               <div class="ai-s">Relire avant diffusion</div>
             </div>
-            <div class="chs">
-              <div class="ch2 wa on" id="ch-wa" onclick="selectChannel('wa')"><div class="dot" style="background:#3b6d11"></div>WhatsApp</div>
-              <div class="ch2 ml2" id="ch-mail" onclick="selectChannel('mail')"><div class="dot" style="background:#185fa5"></div>Mail</div>
-            </div>
+
           </div>
           <div class="ctx-box">
             <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--sb-on-txt);font-weight:500;margin-bottom:6px">Contexte du trimestre (optionnel)</div>
@@ -536,8 +535,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
       <div class="ton" onclick="selectTon(this)">Professionnel</div>
       <div class="ton" onclick="selectTon(this)">Dynamique</div>
     </div>
-    <div class="modal-lbl">Secteur d'activité</div>
-    <input class="inp" id="modal-secteur" type="text" placeholder="Ex: Restauration, Hôtellerie..." style="margin-top:4px">
+
     <div class="modal-actions">
       <button class="btn-g" onclick="closeModal()">Annuler</button>
       <button class="btn-p" onclick="saveClientConfig()">Enregistrer</button>
@@ -644,6 +642,7 @@ function sw(name, nav){
   if(nav) nav.classList.add('on');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.getElementById('p-'+name).classList.add('on');
+  if(name === 'report'){ renderAnneeSel(); renderReport(); }
   const c = getClient();
   const cfg = navCfg[name];
   document.getElementById('tb-t').textContent = cfg.t || (c ? c.name : '—');
@@ -670,7 +669,10 @@ function renderDashboard(){
   const last = rows[rows.length-1];
   const p = state.currentPlatform;
   // Adapter les labels des métriques selon la plateforme
-  document.querySelector('#dash-metrics .mc:first-child .ml').textContent = p==='ig'?'Publications':'Posts';
+  document.querySelector('#dash-metrics .mc:first-child .ml').textContent = p==='ig'?'Publications':p==='lk'?'Publications':'Posts';
+  // Mettre à jour le pill du mois affiché
+  const pill = document.getElementById('tb-pill');
+  if(pill && last) { pill.style.display=''; pill.textContent = last.month || ''; }
   if(last){
     document.getElementById('d-posts').textContent = (p==='ig'||p==='lk') ? (last.publications||last.posts||'—') : (last.posts||'—');
     document.getElementById('d-abonnes').textContent = last.abonnes ? fmt(last.abonnes) : '—';
@@ -682,6 +684,8 @@ function renderDashboard(){
     ['d-posts','d-abonnes','d-couverture','d-impressions','d-engagement','d-taux'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.textContent='—';
     });
+    const pill2 = document.getElementById('tb-pill');
+    if(pill2) pill2.style.display = 'none';
   }
   renderBars(rows);
   const pData = state.currentPlatform === 'lk' ? (c.data.lk || []) :
@@ -691,10 +695,12 @@ function renderDashboard(){
 
 function renderBars(rows){
   const last6 = rows.slice(-6);
-  const labels = last6.map(r=>r.month.slice(0,3));
+  const labels = last6.map(r=>r.month ? r.month.slice(0,3) : '');
   const couv = last6.map(r=>r.couverture||0);
+  const abo = last6.map(r=>r.abonnes||0);
   const eng = last6.map(r=>parseFloat((r.taux||'0').replace(',','.').replace('%',''))||0);
   drawBars('bc', couv, labels, '#e7411f');
+  drawBars('ba', abo, labels, '#7baaf7');
   drawBars('be', eng, labels, '#1D9E75');
 }
 
@@ -912,6 +918,15 @@ async function sendToSheets(){
   const month=document.getElementById('import-month-sel').value; if(!month){ toast('Sélectionnez un mois',true); return; }
   const abonnes=parseInt(document.getElementById('abonnes-input').value)||0;
 
+  // Détection doublons — vérifier si ce mois a déjà des données
+  const hasFB = state.fbData && (c.data.fb||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
+  const hasIG = state.igData && (c.data.ig||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
+  const hasLK = state.lkData && (c.data.lk||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
+  if(hasFB||hasIG||hasLK){
+    const plats = [hasFB?'Facebook':null, hasIG?'Instagram':null, hasLK?'LinkedIn':null].filter(Boolean).join(', ');
+    if(!confirm(`Des données existent déjà pour ${month} (${plats}). Ecraser ?`)) return;
+  }
+
   const platforms = [];
   if(state.fbData) platforms.push({p:'fb', data:{...state.fbData, abonnes}});
   if(state.igData) platforms.push({p:'ig', data:{...state.igData, abonnes}});
@@ -965,11 +980,33 @@ function resetImport(){
 // ── Reporting ──
 const triLabels={1:'Janv — Mars',2:'Avr — Juin',3:'Juil — Sept',4:'Oct — Déc'};
 let currentTri=2;
+let currentTriAnnee = new Date().getFullYear();
+
+function renderAnneeSel(){
+  const c = getClient(); if(!c) return;
+  const allRows = [...(c.data.fb||[]), ...(c.data.ig||[]), ...(c.data.lk||[])];
+  const years = [...new Set(allRows.map(r => parseInt(r.month?.split(' ')[1])).filter(Boolean))].sort((a,b)=>b-a);
+  if(!years.length) years.push(new Date().getFullYear());
+  if(!years.includes(currentTriAnnee)) currentTriAnnee = years[0];
+  const el = document.getElementById('annee-sel'); if(!el) return;
+  el.innerHTML = years.map(y =>
+    `<div class="psel${y===currentTriAnnee?' on':''}" onclick="selAnnee(${y},this)">${y}</div>`
+  ).join('');
+}
+
+function selAnnee(y, el){
+  currentTriAnnee = y;
+  document.querySelectorAll('#annee-sel .psel').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('trimestre-label').textContent=`${triLabels[currentTri]} ${currentTriAnnee}`;
+  renderReport();
+}
+
 function selTrimestre(n,el){
   currentTri=n;
-  document.querySelectorAll('.psel').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('#trimestre-sel .psel').forEach(s=>s.classList.remove('on'));
   el.classList.add('on');
-  document.getElementById('trimestre-label').textContent=`${triLabels[n]} 2026`;
+  document.getElementById('trimestre-label').textContent=`${triLabels[n]} ${currentTriAnnee}`;
   renderReport();
 }
 function renderReport(){
@@ -1000,7 +1037,7 @@ function renderReport(){
 
   const t2 = triMonths(currentTri);
   const t1 = triMonths(prevTri(currentTri));
-  const yr = new Date().getFullYear();
+  const yr = currentTriAnnee || new Date().getFullYear();
   const t1lbl = `T${prevTri(currentTri)} ${currentTri===1?yr-1:yr}`;
   const t2lbl = `T${currentTri} ${yr}`;
 
@@ -1115,7 +1152,14 @@ ${d.lk.abonnesFin ? `- Abonnés en fin de période : ${fmt(d.lk.abonnesFin)}` : 
 `;
   }
 
-  const prompt = `Tu es community manager dans une agence de communication digitale. Rédige un bilan trimestriel à destination du client "${d.client}"${d.secteur ? ` (secteur : ${d.secteur})` : ''} pour la période ${d.trimestre}.
+  // Vérifier qu'on a des données réelles
+  const hasData = (d.fb.couverture > 0 || d.fb.impressions > 0 || d.ig.impressions > 0 || (d.lk && d.lk.impressions > 0));
+  if(!hasData){
+    out.innerHTML = '<span class="msg-placeholder">Aucune donnée disponible pour ce trimestre — importez les stats de ce trimestre.</span>';
+    return;
+  }
+
+  const prompt = `Tu es community manager dans une agence de communication digitale. Rédige un bilan trimestriel à destination du client "${d.client}" pour la période ${d.trimestre}.
 
 Voici les données de la période :
 ${dataSummary}
@@ -1163,9 +1207,6 @@ Consignes de rédaction :
 }
 
 function copyMessage(){ navigator.clipboard.writeText(document.getElementById('msg-output').textContent); toast('Message copié !'); }
-function selectChannel(c){ state.channel=c; document.getElementById('ch-wa').className='ch2 wa'+(c==='wa'?' on':''); document.getElementById('ch-mail').className='ch2 ml2'+(c==='mail'?' on':''); }
-
-// ── Paramètres ──
 function saveApiKey(){ state.apiKey=document.getElementById('api-key-inp').value.trim(); localStorage.setItem('arjcom-apikey',state.apiKey); toast('Clé API enregistrée'); }
 // ── Constantes Sheets ──
 const MOIS_LIST_G = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
@@ -1294,7 +1335,7 @@ async function loadClientsFromSheets(){
       return existing || {
         id:'c'+Date.now()+i, name,
         color:col[0], txtColor:col[1],
-        plats:['fb','ig'], ton:'Chaleureux', secteur:'',
+        plats:['fb','ig'], ton:'Chaleureux', 
         data:{fb:[],ig:[],lk:[]}
       };
     });
@@ -1839,8 +1880,25 @@ async function formatYearSection(sheetId, baseRowIdx, year){
 
 async function writeToSheets(clientName, platform, data, month){
   if(!isTokenValid()){
-    toast('Session Google expirée — reconnectez-vous dans Paramètres', true);
-    return false;
+    // Tenter une reconnexion silencieuse
+    return new Promise((resolve) => {
+      try {
+        const client = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: SCOPES,
+          callback: async (resp) => {
+            if(resp.error){ toast('Session expirée — reconnectez-vous dans Paramètres', true); resolve(false); return; }
+            googleAccessToken = resp.access_token;
+            tokenExpiry = Date.now() + (resp.expires_in * 1000);
+            localStorage.setItem('arjcom-gtoken', googleAccessToken);
+            localStorage.setItem('arjcom-gtoken-expiry', tokenExpiry.toString());
+            toast('Session renouvelée — envoi en cours...');
+            resolve(true);
+          }
+        });
+        client.requestAccessToken({prompt:''});
+      } catch(e){ toast('Session expirée — reconnectez-vous dans Paramètres', true); resolve(false); }
+    });
   }
   const parts = month.split(' ');
   const year = parseInt(parts[1]);
@@ -1918,7 +1976,7 @@ async function addClient(){
   const name=document.getElementById('new-client-inp').value.trim(); if(!name){ toast('Saisissez un nom de client',true); return; }
   const colors=[['rgba(231,65,31,0.2)','#f9a488'],['rgba(15,110,86,0.2)','#5dcaa5'],['rgba(24,95,165,0.2)','#85b7eb'],['rgba(153,53,86,0.2)','#ed93b1'],['rgba(186,117,23,0.2)','#FAC775'],['rgba(83,74,183,0.2)','#AFA9EC']];
   const c=colors[state.clients.length%colors.length];
-  state.clients.push({id:'c'+Date.now(),name,color:c[0],txtColor:c[1],plats:['fb','ig'],ton:'Chaleureux',secteur:'',data:{fb:[],ig:[],lk:[]}});
+  state.clients.push({id:'c'+Date.now(),name,color:c[0],txtColor:c[1],plats:['fb','ig'],ton:'Chaleureux',data:{fb:[],ig:[],lk:[]}});
   saveClients(); document.getElementById('new-client-inp').value='';
   renderSidebarClients(); renderSettingsClients();
   if(isTokenValid()) await createSheetTab(name);
@@ -1944,7 +2002,7 @@ function openModal(id){
   const c=state.clients.find(cl=>cl.id===id); if(!c) return;
   state.modalClient=id;
   document.getElementById('modal-title').textContent=`Configurer — ${c.name}`;
-  document.getElementById('modal-secteur').value=c.secteur||'';
+  
   document.querySelectorAll('#modal-plats .plat').forEach(el=>{
     const p=el.querySelector('.dot').nextSibling.textContent.trim().toLowerCase().slice(0,2);
     el.className='plat'+(c.plats.includes(p)?` on-${p}`:'');
@@ -1968,7 +2026,7 @@ function saveClientConfig(){
   const plats=[]; document.querySelectorAll('#modal-plats .plat').forEach(el=>{ const cls=[...el.classList].find(c=>c.startsWith('on-')); if(cls) plats.push(cls.slice(3)); });
   c.plats=plats;
   const ton=document.querySelector('#modal-tons .ton.on'); if(ton) c.ton=ton.textContent.trim();
-  c.secteur=document.getElementById('modal-secteur').value.trim();
+  
   saveClients(); renderSettingsClients(); closeModal();
   toast('Configuration enregistrée');
 }
