@@ -918,8 +918,8 @@ async function extractLK(file){
           postsByMonth[key] = (postsByMonth[key] || 0) + 1;
         }
 
-        // Construire les mois
-        const months = Object.keys(indByMonth).map(key => {
+        // Construire les mois — ne garder que ceux qui ont des posts
+        const months = Object.keys(indByMonth).filter(key => postsByMonth[key] > 0).map(key => {
           const d = indByMonth[key];
           const eng = d.reactions + d.republications;
           const couv = Math.round(d.couverture);
@@ -957,29 +957,48 @@ async function extractLK(file){
 
 function extractIG(raw){
   const{header,rows}=parseMetaCSV(raw);
-  // Colonnes Instagram réelles : Vues=Impressions, Couverture, Mentions J'aime, Commentaires, Partages
+  const cDate=col(header,['Heure de publication','Date de publication']);
   const cImp=col(header,['Vues']);
-  const cCouv=col(header,['Couverture','Reach','Portée']);
-  const cLike=col(header,["Mentions J’aime","Mentions J'aime","J'aime","Jaime","like"]);
+  const cCouv=col(header,['Couverture','Reach']);
+  const cLike=col(header,['’aime','‘aime',"J'aime",'like','Like','aime']);
   const cCom=col(header,['Commentaires','Comments']);
   const cShare=col(header,['Partages','Shares']);
-  const cEnreg=col(header,['Enregistrements','Saves']);
-  let impressions=0,couverture=0,likes=0,commentaires=0,partages=0,enregistrements=0;
-  rows.forEach(r=>{
-    impressions+=(parseInt(r[cImp])||0);
-    couverture+=(parseInt(r[cCouv])||0);
-    likes+=(parseInt(r[cLike])||0);
-    commentaires+=(parseInt(r[cCom])||0);
-    partages+=(parseInt(r[cShare])||0);
-    enregistrements+=(parseInt(r[cEnreg])||0);
-  });
-  const engagement=likes+commentaires+partages;
-  const publications=rows.length;
-  const reels=rows.filter(r=>(r['Type de publication']||'').toLowerCase().includes('reel')).length;
-  const taux=couverture>0?((engagement/couverture)*100).toFixed(2).replace('.',',')+'%':'0%';
-  return{publications,reels,impressions,couverture,engagement,likes,commentaires,partages,enregistrements,clics:0,taux,posts:publications};
-}
+  const cType=col(header,['Type de publication']);
 
+  const monthly = {};
+  rows.forEach(r => {
+    const d = parseDateToMonth(r[cDate]);
+    if(!d) return;
+    if(!monthly[d.key]) monthly[d.key] = {publications:0,reels:0,impressions:0,couverture:0,engagement:0,clics:0,key:d.key};
+    const m = monthly[d.key];
+    m.publications++;
+    m.impressions += parseInt(r[cImp])   || 0;
+    m.couverture  += parseInt(r[cCouv])  || 0;
+    m.engagement  += (parseInt(r[cLike]) || 0) + (parseInt(r[cCom]) || 0) + (parseInt(r[cShare]) || 0);
+    if(cType && (r[cType]||'').toLowerCase().includes('reel')) m.reels++;
+  });
+
+  const months = Object.values(monthly);
+  if(months.length === 0) return null;
+
+  if(months.length === 1){
+    const m = months[0];
+    m.posts = m.publications;
+    m.taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+    return { ...m, singleMonth: true };
+  }
+
+  months.forEach(m => {
+    m.posts = m.publications;
+    m.taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+  });
+  months.sort((a,b) => {
+    const [mA, yA] = [MOIS_FR_IDX.indexOf(a.key.split(' ')[0])+1, parseInt(a.key.split(' ')[1])];
+    const [mB, yB] = [MOIS_FR_IDX.indexOf(b.key.split(' ')[0])+1, parseInt(b.key.split(' ')[1])];
+    return yA !== yB ? yA - yB : mA - mB;
+  });
+  return { months, singleMonth: false };
+}
 function showPreview(p, data){
   const card=document.getElementById('preview-card'); card.style.display='';
   const month=document.getElementById('import-month-sel').value||'Mois non sélectionné';
