@@ -768,17 +768,24 @@ function readFile(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 
 async function readAndParse(f, p){
   try {
+    let data;
     if(p === 'lk'){
-      const data = await extractLK(f);
-      state.lkData = data;
-      showPreview('lk', data);
+      data = await extractLK(f);
     } else {
       const text = await readFile(f);
-      const data = p==='fb' ? extractFB(text) : extractIG(text);
-      if(p==='fb') state.fbData=data; else state.igData=data;
-      showPreview(p, data);
+      data = p==='fb' ? extractFB(text) : extractIG(text);
     }
-  } catch(e){ toast('Erreur de lecture du fichier',true); console.error(e); }
+    if(!data){ toast('Impossible de lire le fichier', true); return; }
+
+    if(data.singleMonth){
+      if(p==='fb') state.fbData=data; else if(p==='ig') state.igData=data; else state.lkData=data;
+      showPreview(p, data);
+    } else {
+      // Multi-mois — stocker et afficher le résumé
+      if(p==='fb') state.fbData=data; else if(p==='ig') state.igData=data; else state.lkData=data;
+      showPreviewMulti(p, data);
+    }
+  } catch(e){ toast('Erreur de lecture du fichier', true); console.error(e); }
 }
 
 function parseMetaCSV(raw){
@@ -807,61 +814,140 @@ function parseMetaCSV(raw){
 
 function col(header,candidates){ for(const c of candidates){const f=header.find(h=>h.toLowerCase().includes(c.toLowerCase()));if(f)return f;} return null; }
 
-function extractFB(raw){
-  const{header,rows}=parseMetaCSV(raw);
-  const cCouv=col(header,['Couverture']); const cViews=col(header,['Vues']); const cEng=col(header,['Réactions, commentaires','Réactions,']); const cClics=col(header,['Total des clics']);
-  let couverture=0,impressions=0,engagement=0,clics=0;
-  rows.forEach(r=>{ couverture+=(parseInt(r[cCouv])||0); impressions+=(parseInt(r[cViews])||0); engagement+=(parseInt(r[cEng])||0); clics+=(parseInt(r[cClics])||0); });
-  const posts=rows.length;
-  const taux=couverture>0?((engagement/couverture)*100).toFixed(2).replace('.',',')+'%':'0%';
-  return{posts,couverture,impressions,engagement,clics,taux};
+// Conversion date MM/DD/YYYY → {month, year}
+const MOIS_FR_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+function parseDateToMonth(dateStr){
+  if(!dateStr) return null;
+  const parts = dateStr.trim().split(' ')[0].split('/');
+  if(parts.length !== 3) return null;
+  const month = parseInt(parts[0]);
+  const year = parseInt(parts[2]);
+  if(month < 1 || month > 12 || isNaN(year)) return null;
+  return { month, year, key: `${MOIS_FR_IDX[month-1]} ${year}` };
 }
 
-// ── Extraction LinkedIn XLS ──
+// extractFB — supporte import mois unique ET multi-mois
+function extractFB(raw){
+  const{header,rows}=parseMetaCSV(raw);
+  const cDate=col(header,['Heure de publication','Date de publication']);
+  const cCouv=col(header,['Couverture']);
+  const cViews=col(header,['Vues']);
+  const cEng=col(header,['Réactions, commentaires','Réactions,']);
+  const cClics=col(header,['Total des clics']);
+  const cType=col(header,['Type de publication']);
+
+  // Regrouper par mois
+  const monthly = {};
+  rows.forEach(r => {
+    const d = parseDateToMonth(r[cDate]);
+    if(!d) return;
+    if(!monthly[d.key]) monthly[d.key] = {posts:0,couverture:0,impressions:0,engagement:0,clics:0,reels:0,key:d.key};
+    const m = monthly[d.key];
+    m.posts++;
+    m.couverture  += parseInt(r[cCouv])  || 0;
+    m.impressions += parseInt(r[cViews]) || 0;
+    m.engagement  += parseInt(r[cEng])  || 0;
+    m.clics       += parseInt(r[cClics]) || 0;
+    if(cType !== -1 && (r[cType]||'').toLowerCase().includes('reel')) m.reels++;
+  });
+
+  const months = Object.values(monthly);
+  if(months.length === 0) return null;
+
+  // Si un seul mois — retourner comme avant (compatibilité)
+  if(months.length === 1){
+    const m = months[0];
+    const taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+    return { ...m, taux, singleMonth: true };
+  }
+
+  // Multi-mois — retourner le tableau
+  months.forEach(m => {
+    m.taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+  });
+  // Trier chronologiquement
+  months.sort((a,b) => {
+    const [mA, yA] = [MOIS_FR_IDX.indexOf(a.key.split(' ')[0])+1, parseInt(a.key.split(' ')[1])];
+    const [mB, yB] = [MOIS_FR_IDX.indexOf(b.key.split(' ')[0])+1, parseInt(b.key.split(' ')[1])];
+    return yA !== yB ? yA - yB : mA - mB;
+  });
+  return { months, singleMonth: false };
+}
+
+// ── Extraction LinkedIn XLS — multi-mois ──
 async function extractLK(file){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = function(e){
       try {
-        // Lire le XLS via une lib JS légère — SheetJS
         const data = new Uint8Array(e.target.result);
         const wb = XLSX.read(data, {type:'array'});
 
-        // Onglet Indicateurs — impressions uniques (col index 4, journalier)
+        // Onglet Indicateurs — format DD/MM/YYYY — journalier
         const wsInd = wb.Sheets[wb.SheetNames[0]];
         const indRows = XLSX.utils.sheet_to_json(wsInd, {header:1, defval:0});
-        let impressionsUniques = 0;
+        const indByMonth = {};
         for(let i=2; i<indRows.length; i++){
-          impressionsUniques += parseFloat(indRows[i][4]) || 0;
+          const dateStr = String(indRows[i][0] || '');
+          if(!dateStr.includes('/')) continue;
+          const parts = dateStr.split('/');
+          if(parts.length !== 3) continue;
+          const day = parseInt(parts[0]), month = parseInt(parts[1]), year = parseInt(parts[2]);
+          if(month < 1 || month > 12) continue;
+          const key = MOIS_FR_IDX[month-1] + ' ' + year;
+          if(!indByMonth[key]) indByMonth[key] = {impressions:0,couverture:0,clics:0,reactions:0,republications:0};
+          indByMonth[key].impressions    += parseFloat(indRows[i][3]) || 0;
+          indByMonth[key].couverture     += parseFloat(indRows[i][4]) || 0;
+          indByMonth[key].clics          += parseFloat(indRows[i][7]) || 0;
+          indByMonth[key].reactions      += parseFloat(indRows[i][10]) || 0;
+          indByMonth[key].republications += parseFloat(indRows[i][16]) || 0;
         }
 
-        // Onglet Posts
+        // Onglet Posts — format MM/DD/YYYY
         const wsPosts = wb.Sheets[wb.SheetNames[1]];
         const postRows = XLSX.utils.sheet_to_json(wsPosts, {header:1, defval:0});
-        let impressions=0, clics=0, likes=0, commentaires=0, republications=0;
+        const postsByMonth = {};
         for(let i=2; i<postRows.length; i++){
-          impressions    += parseFloat(postRows[i][9])  || 0;
-          clics          += parseFloat(postRows[i][12]) || 0;
-          likes          += parseFloat(postRows[i][14]) || 0;
-          commentaires   += parseFloat(postRows[i][15]) || 0;
-          republications += parseFloat(postRows[i][16]) || 0;
+          const dateStr = String(postRows[i][5] || '');
+          if(!dateStr.includes('/')) continue;
+          const parts = dateStr.split('/');
+          if(parts.length !== 3) continue;
+          const month = parseInt(parts[0]), year = parseInt(parts[2]);
+          if(month < 1 || month > 12) continue;
+          const key = MOIS_FR_IDX[month-1] + ' ' + year;
+          postsByMonth[key] = (postsByMonth[key] || 0) + 1;
         }
-        const publications = postRows.length - 2;
-        const engagement = likes + commentaires + republications;
-        const couverture = Math.round(impressionsUniques);
-        const taux = couverture > 0
-          ? (engagement/couverture*100).toFixed(2).replace('.',',')+'%'
-          : '0%';
 
-        resolve({
-          posts: publications,
-          publications,
-          impressions: Math.round(impressions),
-          couverture,
-          engagement: Math.round(engagement),
-          clics: Math.round(clics),
-          taux
+        // Construire les mois
+        const months = Object.keys(indByMonth).map(key => {
+          const d = indByMonth[key];
+          const eng = d.reactions + d.republications;
+          const couv = Math.round(d.couverture);
+          return {
+            key,
+            publications: postsByMonth[key] || 0,
+            posts: postsByMonth[key] || 0,
+            impressions: Math.round(d.impressions),
+            couverture: couv,
+            engagement: Math.round(eng),
+            clics: Math.round(d.clics),
+            taux: couv > 0 ? (eng/couv*100).toFixed(2).replace('.',',')+'%' : '0%'
+          };
         });
+
+        // Trier chronologiquement
+        months.sort((a,b) => {
+          const [mA, yA] = [MOIS_FR_IDX.indexOf(a.key.split(' ')[0])+1, parseInt(a.key.split(' ')[1])];
+          const [mB, yB] = [MOIS_FR_IDX.indexOf(b.key.split(' ')[0])+1, parseInt(b.key.split(' ')[1])];
+          return yA !== yB ? yA - yB : mA - mB;
+        });
+
+        if(months.length === 0){ reject(new Error('Aucune donnée')); return; }
+        if(months.length === 1){
+          resolve({ ...months[0], singleMonth: true });
+        } else {
+          resolve({ months, singleMonth: false });
+        }
       } catch(err){ reject(err); }
     };
     reader.onerror = reject;
@@ -913,46 +999,93 @@ function showPreview(p, data){
   document.getElementById('preview-metrics').innerHTML=metrics.map(m=>`<div class="pm"><div class="pml">${m.l}</div><div class="pmv${m.r?' r':''}">${m.v}</div></div>`).join('');
 }
 
+function showPreviewMulti(p, data){
+  const card = document.getElementById('preview-card');
+  card.style.display = '';
+  const platLabel = p==='fb'?'Facebook':p==='ig'?'Instagram':'LinkedIn';
+  const c = getClient();
+  document.getElementById('preview-title').textContent = `Import multi-mois — ${platLabel}`;
+  document.getElementById('preview-sub').textContent = `${c?c.name:'Client'} · ${data.months.length} mois détectés`;
+  // Afficher la liste des mois détectés
+  const monthsList = data.months.map(m => m.key).join(' · ');
+  document.getElementById('preview-metrics').innerHTML = `
+    <div style="width:100%;padding:8px 0">
+      <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-bottom:6px">Mois détectés :</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);font-weight:500">${monthsList}</div>
+    </div>
+    <div style="width:100%;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-top:8px;padding:8px;background:rgba(231,65,31,0.08);border-radius:8px;border:1px solid rgba(231,65,31,0.2)">
+      Les ${data.months.length} mois seront envoyés en une seule fois vers le Sheets. Le champ abonnés s'appliquera au dernier mois uniquement.
+    </div>`;
+}
+
 async function sendToSheets(){
   const c=getClient(); if(!c){ toast('Sélectionnez un client',true); return; }
-  const month=document.getElementById('import-month-sel').value; if(!month){ toast('Sélectionnez un mois',true); return; }
+  const monthSel = document.getElementById('import-month-sel').value;
+  // Pour les imports multi-mois, le mois n'est pas requis
+  const isMultiImport = (state.fbData && !state.fbData.singleMonth) || (state.igData && !state.igData.singleMonth) || (state.lkData && !state.lkData.singleMonth);
+  const month = monthSel || (isMultiImport ? 'multi' : '');
+  if(!month && !isMultiImport){ toast('Sélectionnez un mois', true); return; }
   const abonnes=parseInt(document.getElementById('abonnes-input').value)||0;
 
-  // Détection doublons — vérifier si ce mois a déjà des données
-  const hasFB = state.fbData && (c.data.fb||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
-  const hasIG = state.igData && (c.data.ig||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
-  const hasLK = state.lkData && (c.data.lk||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
-  if(hasFB||hasIG||hasLK){
-    const plats = [hasFB?'Facebook':null, hasIG?'Instagram':null, hasLK?'LinkedIn':null].filter(Boolean).join(', ');
-    if(!confirm(`Des données existent déjà pour ${month} (${plats}). Ecraser ?`)) return;
+  // Détection doublons
+  if(!isMultiImport){
+    const hasFB = state.fbData && (c.data.fb||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
+    const hasIG = state.igData && (c.data.ig||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
+    const hasLK = state.lkData && (c.data.lk||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
+    if(hasFB||hasIG||hasLK){
+      const plats = [hasFB?'Facebook':null, hasIG?'Instagram':null, hasLK?'LinkedIn':null].filter(Boolean).join(', ');
+      if(!confirm(`Des données existent déjà pour ${month} (${plats}). Ecraser ?`)) return;
+    }
   }
 
-  const platforms = [];
-  if(state.fbData) platforms.push({p:'fb', data:{...state.fbData, abonnes}});
-  if(state.igData) platforms.push({p:'ig', data:{...state.igData, abonnes}});
-  if(state.lkData) platforms.push({p:'lk', data:{...state.lkData, abonnes}});
+  // Construire la liste des imports — gère mono et multi-mois
+  const buildEntries = (platformData, p, defaultMonth, abonnesVal) => {
+    if(!platformData) return [];
+    if(platformData.singleMonth !== false){
+      // Mois unique
+      return [{ p, month: defaultMonth, data: {...platformData, abonnes: abonnesVal} }];
+    } else {
+      // Multi-mois — abonnés sur le dernier mois seulement
+      return platformData.months.map((m, i) => ({
+        p,
+        month: m.key,
+        data: { ...m, abonnes: i === platformData.months.length-1 ? abonnesVal : 0 }
+      }));
+    }
+  };
 
-  if(!platforms.length){ toast('Aucun fichier importé',true); return; }
+  const entries = [
+    ...buildEntries(state.fbData, 'fb', month, abonnes),
+    ...buildEntries(state.igData, 'ig', month, abonnes),
+    ...buildEntries(state.lkData, 'lk', month, abonnes),
+  ];
+
+  if(!entries.length){ toast('Aucun fichier importé', true); return; }
 
   // Enregistrement local
-  platforms.forEach(({p, data}) => {
-    const entry = {month, ...data};
+  entries.forEach(({p, month: m, data}) => {
+    const entry = {month: m, ...data};
     if(!c.data[p]) c.data[p]=[];
-    const idx = c.data[p].findIndex(r=>r.month===month);
+    const idx = c.data[p].findIndex(r=>r.month===m);
     if(idx>=0) c.data[p][idx]=entry; else c.data[p].push(entry);
   });
   saveClients();
 
-  // Envoi vers Sheets si connecté
+  // Envoi vers Sheets
   if(isTokenValid()){
+    const isMulti = entries.length > 3;
+    if(isMulti) toast(`Envoi de ${entries.length} mois vers Sheets...`);
     let allOk = true;
-    for(const {p, data} of platforms){
-      const ok = await writeToSheets(c.name, p, data, month);
-      if(!ok) allOk = false;
+    for(const {p, month: m, data} of entries){
+      const ok = await writeToSheets(c.name, p, data, m);
+      if(!ok){ allOk = false; break; }
     }
-    if(allOk) toast(`Envoyé vers Sheets — ${c.name} · ${month}`);
+    if(allOk){
+      const months = [...new Set(entries.map(e=>e.month))];
+      toast(`${months.length} mois envoyés — ${c.name}`);
+    }
   } else {
-    toast(`Enregistré localement — connectez Google Sheets dans Paramètres`);
+    toast('Enregistré localement — connectez Google Sheets dans Paramètres');
   }
 
   resetImport();
