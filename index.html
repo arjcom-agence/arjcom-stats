@@ -210,6 +210,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 .plat.on-fb{background:#0c2240;border-color:#185fa5;color:#85b7eb;font-weight:500}
 .plat.on-ig{background:#2a1020;border-color:#72243e;color:#ed93b1;font-weight:500}
 .plat.on-lk{background:#0c1a30;border-color:#1a56cc;color:#7baaf7;font-weight:500}
+.plat.on-tk{background:#1a1a2e;border-color:#4a4a8e;color:#aaaadd;font-weight:500}
 .ton-row{display:flex;gap:6px;flex-wrap:wrap}
 .ton{padding:5px 12px;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);cursor:pointer;color:var(--txt2);background:var(--bg-sec);transition:all .1s}
 .ton.on{background:var(--brand-l);border-color:var(--brand);color:var(--sb-on-txt);font-weight:500}
@@ -265,7 +266,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
         <div class="uav" id="user-av">?</div>
         <div>
           <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)" id="user-name">Non connecté</div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt3)">CM · SMO</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt3)" id="user-email">CM · SMO</div>
         </div>
       </div>
     </div>
@@ -528,10 +529,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 
             <div class="card">
               <div class="ct" style="margin-bottom:10px">Préférences</div>
-              <div class="tog-row">
-                <div><div class="tl">LinkedIn</div><div class="ts">Activer l'import LinkedIn Analytics pour tous les clients</div></div>
-                <div class="tog off" id="tog-li" onclick="tLI()"><div class="tog-t"></div></div>
-              </div>
+              
             </div>
           </div>
         </div>
@@ -544,29 +542,8 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 <!-- fin .app -->
 
 <!-- Modale config client -->
-<div class="modal-wrap" id="modal" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
-    <div class="modal-t" id="modal-title">Configurer le client</div>
-    <div class="modal-lbl">Plateformes actives</div>
-    <div class="plat-row" id="modal-plats">
-      <div class="plat on-fb" onclick="togglePlat(this,'fb')"><div class="dot dot-fb"></div>Facebook</div>
-      <div class="plat on-ig" onclick="togglePlat(this,'ig')"><div class="dot dot-ig"></div>Instagram</div>
-      <div class="plat" onclick="togglePlat(this,'lk')"><div class="dot" style="background:#7baaf7"></div>LinkedIn</div>
-      <div class="plat" onclick="togglePlat(this,'tk')"><div class="dot" style="background:#1a1a2e"></div>TikTok</div>
-    </div>
-    <div class="modal-lbl">Ton des messages IA</div>
-    <div class="ton-row" id="modal-tons">
-      <div class="ton on" onclick="selectTon(this)">Chaleureux</div>
-      <div class="ton" onclick="selectTon(this)">Professionnel</div>
-      <div class="ton" onclick="selectTon(this)">Dynamique</div>
-    </div>
 
-    <div class="modal-actions">
-      <button class="btn-g" onclick="closeModal()">Annuler</button>
-      <button class="btn-p" onclick="saveClientConfig()">Enregistrer</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -586,8 +563,7 @@ const state = {
   fbData: null, igData: null, tkData: null,
   apiKey: localStorage.getItem('arjcom-apikey') || '',
   sheetsId: localStorage.getItem('arjcom-sheetsid') || '',
-  liEnabled: localStorage.getItem('arjcom-li') === '1',
-  modalClient: null,
+    modalClient: null,
   channel: 'wa',
 };
 
@@ -618,9 +594,8 @@ function renderSettingsClients(){
       <div class="cli-av" style="background:${c.color};color:${c.txtColor};width:28px;height:28px;border-radius:8px;flex-shrink:0">${c.name.slice(0,2).toUpperCase()}</div>
       <div style="flex:1;min-width:0">
         <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)">${c.name}</div>
-        <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt2)">${c.plats.map(p=>p.toUpperCase()).join(' · ')}</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt2)">FB · IG · LK · TK</div>
       </div>
-      <button class="cli-cfg" onclick="openModal('${c.id}')">Configurer</button>
       <button class="cli-del" onclick="deleteClient('${c.id}')">
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg>
       </button>
@@ -650,11 +625,11 @@ async function selectClient(id){
 }
 
 function updateImportZones(){
-  const c=getClient(); if(!c) return;
-  const lkZone=document.getElementById('dz-lk');
-  if(lkZone) lkZone.style.display=c.plats.includes('lk')?'':'none';
-  const tkZone=document.getElementById('dz-tk');
-  if(tkZone) tkZone.style.display=c.plats.includes('tk')?'':'none';
+  // Toutes les plateformes toujours visibles
+  ['dz-lk','dz-tk'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='';
+  });
 }
 
 // ── Navigation ──
@@ -760,9 +735,9 @@ function renderHistTableFB(rows){
   // Afficher/masquer l'onglet LinkedIn selon config client
   const c2 = getClient();
   const lkTab = document.getElementById('tab-lk');
-  if(lkTab) lkTab.style.display = (c2 && c2.plats.includes('lk')) ? '' : 'none';
+  if(lkTab) lkTab.style.display = '';
   const tkTab = document.getElementById('tab-tk');
-  if(tkTab) tkTab.style.display = (c2 && c2.plats.includes('tk')) ? '' : 'none';
+  if(tkTab) tkTab.style.display = '';
   const tbody = document.getElementById('hist-body-fb');
   const titleEl = document.getElementById('hist-title');
   if(titleEl) titleEl.textContent = (p==='fb'?'Historique Facebook':'Historique Instagram')+' — 2026';
@@ -1485,6 +1460,18 @@ function connectSheets(){
       tokenExpiry = Date.now() + (resp.expires_in * 1000);
       localStorage.setItem('arjcom-gtoken', googleAccessToken);
       localStorage.setItem('arjcom-gtoken-expiry', tokenExpiry.toString());
+      // Récupérer les infos utilisateur Google
+      try {
+        const uRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { 'Authorization': `Bearer ${resp.access_token}` }
+        });
+        const uData = await uRes.json();
+        const name = uData.name || uData.email || 'Connecté';
+        document.getElementById('user-name').textContent = name;
+        document.getElementById('user-email').textContent = uData.email || 'Google';
+      } catch(e) {
+        document.getElementById('user-name').textContent = 'Connecté';
+      }
       toast('Connecté — chargement des clients...');
       const cta = document.getElementById('google-cta-banner');
       if(cta) cta.remove();
@@ -1505,6 +1492,8 @@ function disconnectSheets(){
   saveClients();
   renderSidebarClients();
   renderSheetsStatus();
+  document.getElementById('user-name').textContent = 'Non connecté';
+  document.getElementById('user-email').textContent = 'CM · SMO';
   toast('Déconnecté de Google Sheets');
 }
 
@@ -1892,7 +1881,7 @@ async function updateAccueilSheet(){
         c.name,
         "✓ FB",
         "✓ IG",
-        c.plats.includes('lk') ? "✓ LK" : "— LK",
+        "✓ LK",
         `=HYPERLINK("#gid=0","${safe}")`,
         ""
       ]);
@@ -1924,7 +1913,7 @@ async function updateAccueilSheet(){
         c.name,
         "✓ FB",
         "✓ IG",
-        c.plats.includes('lk') ? "✓ LK" : "— LK",
+        "✓ LK",
         `${baseUrl}${gid}`
       ]);
     });
@@ -2275,44 +2264,6 @@ async function deleteClient(id){
     toast('Client supprimé');
   }
 }
-function tLI(){ state.liEnabled=!state.liEnabled; localStorage.setItem('arjcom-li',state.liEnabled?'1':'0'); document.getElementById('tog-li').className='tog '+(state.liEnabled?'on':'off'); }
-
-// ── Modale config client ──
-function openModal(id){
-  const c=state.clients.find(cl=>cl.id===id); if(!c) return;
-  state.modalClient=id;
-  document.getElementById('modal-title').textContent=`Configurer — ${c.name}`;
-  
-  document.querySelectorAll('#modal-plats .plat').forEach(el=>{
-    const txt=el.querySelector('.dot').nextSibling.textContent.trim().toLowerCase();
-    const p=txt==='tiktok'?'tk':txt.slice(0,2);
-    el.className='plat'+(c.plats.includes(p)?` on-${p}`:'');
-  });
-  document.querySelectorAll('#modal-tons .ton').forEach(el=>{
-    el.className='ton'+(el.textContent.trim()===c.ton?' on':'');
-  });
-  document.getElementById('modal').classList.add('show');
-}
-function closeModal(){ document.getElementById('modal').classList.remove('show'); state.modalClient=null; }
-function togglePlat(el,p){
-  const on=el.classList.contains(`on-${p}`);
-  el.className=on?'plat':`plat on-${p}`;
-}
-function selectTon(el){
-  document.querySelectorAll('#modal-tons .ton').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
-}
-function saveClientConfig(){
-  const c=state.clients.find(cl=>cl.id===state.modalClient); if(!c){closeModal();return;}
-  const plats=[]; document.querySelectorAll('#modal-plats .plat').forEach(el=>{ const cls=[...el.classList].find(c=>c.startsWith('on-')); if(cls) plats.push(cls.slice(3)); });
-  c.plats=plats;
-  const ton=document.querySelector('#modal-tons .ton.on'); if(ton) c.ton=ton.textContent.trim();
-  
-  saveClients(); renderSettingsClients(); closeModal();
-  toast('Configuration enregistrée');
-}
-
-// ── Déconnexion ──
 function logout(){
   if(!confirm('Se déconnecter de Google ?')) return;
   disconnectSheets();
@@ -2344,7 +2295,6 @@ function toast(msg, err=false){
 // ── Init ──
 async function initApp(){
   if(state.apiKey) document.getElementById('api-key-inp').value=state.apiKey;
-  if(state.liEnabled) document.getElementById('tog-li').className='tog on';
   if(isTokenValid()){
     await loadClientsFromSheets();
     renderSheetsStatus();
