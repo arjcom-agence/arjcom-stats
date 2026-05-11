@@ -295,6 +295,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
           <div class="pt fb" onclick="switchPlatform('fb',this)"><div class="dot dot-fb"></div>Facebook</div>
           <div class="pt" onclick="switchPlatform('ig',this)"><div class="dot dot-ig"></div>Instagram</div>
           <div class="pt" id="tab-lk" onclick="switchPlatform('lk',this)" style="display:none"><div class="dot" style="background:#1a56cc"></div>LinkedIn</div>
+          <div class="pt" id="tab-tk" onclick="switchPlatform('tk',this)" style="display:none"><div class="dot" style="background:#1a1a2e"></div>TikTok</div>
         </div>
         <div class="mgrid" id="dash-metrics">
           <div class="mc acc"><div class="ml">Posts</div><div class="mv" id="d-posts">—</div></div>
@@ -366,6 +367,29 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
             <div class="dl">LinkedIn</div>
             <div class="ds">Glisser le CSV ou cliquer</div>
             <div class="dok" id="lk-fname"></div>
+          </div>
+          <div class="drop" id="dz-tk" style="display:none" onclick="document.getElementById('tk-form').style.display=document.getElementById('tk-form').style.display==='none'?'':'none'">
+            <div class="di" style="background:rgba(26,26,46,0.15)" id="dz-tk-icon">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#8888cc" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>
+            </div>
+            <div class="dl">TikTok</div>
+            <div class="ds">Cliquer pour saisir les stats</div>
+            <div class="dok" id="tk-fname"></div>
+          </div>
+        </div>
+
+        <!-- Formulaire saisie TikTok -->
+        <div id="tk-form" style="display:none;margin-top:8px">
+          <div class="card" style="padding:16px;gap:10px;display:flex;flex-direction:column">
+            <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)">Saisie manuelle TikTok</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Communauté</div><input class="inp-sm" type="number" id="tk-communaute" placeholder="0"></div>
+              <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Publications</div><input class="inp-sm" type="number" id="tk-publications" placeholder="0"></div>
+              <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Vues publications</div><input class="inp-sm" type="number" id="tk-vues-pub" placeholder="0"></div>
+              <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Vues profil</div><input class="inp-sm" type="number" id="tk-vues-profil" placeholder="0"></div>
+              <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Engagement</div><input class="inp-sm" type="number" id="tk-engagement" placeholder="0"></div>
+            </div>
+            <button class="btn-p" style="height:34px;justify-content:center;font-size:12px" onclick="validateTK()">Valider les stats TikTok</button>
           </div>
         </div>
 
@@ -549,7 +573,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 <script>
 // ── Configuration Google ──
 const GOOGLE_CLIENT_ID = '949026014926-eqp3e71vf0ailt36jktaobs728um0ash.apps.googleusercontent.com';
-const SHEETS_ID = '1D75ZXx2TsTUtHL18s5c_57d8HiWhJMG10nPZ378JV5M';
+const SHEETS_ID = '1yoTAuyvk4QmzxX0dzADLXjB7szXsx1_C1QtVJBYxqwA';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 // ── État global ──
@@ -558,7 +582,7 @@ const state = {
   currentClient: null,
   currentPlatform: 'fb',
   fbFile: null, igFile: null, lkFile: null,
-  fbData: null, igData: null,
+  fbData: null, igData: null, tkData: null,
   apiKey: localStorage.getItem('arjcom-apikey') || '',
   sheetsId: localStorage.getItem('arjcom-sheetsid') || '',
   liEnabled: localStorage.getItem('arjcom-li') === '1',
@@ -627,7 +651,9 @@ async function selectClient(id){
 function updateImportZones(){
   const c=getClient(); if(!c) return;
   const lkZone=document.getElementById('dz-lk');
-  if(lkZone) lkZone.style.display=c.plats.includes('lk')?'':' none';
+  if(lkZone) lkZone.style.display=c.plats.includes('lk')?'':'none';
+  const tkZone=document.getElementById('dz-tk');
+  if(tkZone) tkZone.style.display=c.plats.includes('tk')?'':'none';
 }
 
 // ── Navigation ──
@@ -689,19 +715,32 @@ function renderDashboard(){
   }
   renderBars(rows);
   const pData = state.currentPlatform === 'lk' ? (c.data.lk || []) :
-                state.currentPlatform === 'ig' ? (c.data.ig || []) : (c.data.fb || []);
+                state.currentPlatform === 'ig' ? (c.data.ig || []) :
+                state.currentPlatform === 'tk' ? (c.data.tk || []) : (c.data.fb || []);
   renderHistTableFB(pData);
 }
 
-function renderBars(rows){
+function renderBars(rows, platform){
   const last6 = rows.slice(-6);
   const labels = last6.map(r=>r.month ? r.month.slice(0,3) : '');
-  const couv = last6.map(r=>r.couverture||0);
-  const abo = last6.map(r=>r.abonnes||0);
   const eng = last6.map(r=>parseFloat((r.taux||'0').replace(',','.').replace('%',''))||0);
-  drawBars('bc', couv, labels, '#e7411f');
-  drawBars('ba', abo, labels, '#7baaf7');
-  drawBars('be', eng, labels, '#1D9E75');
+  if(platform === 'tk'){
+    const vues = last6.map(r=>r.vuesPub||0);
+    const comm = last6.map(r=>r.communaute||0);
+    drawBars('bc', vues, labels, '#e7411f');
+    drawBars('ba', comm, labels, '#8888cc');
+    drawBars('be', eng, labels, '#1D9E75');
+    document.querySelector('.card .ct') && (document.querySelectorAll('.card .ct')[0].textContent = 'Vues publications');
+    document.querySelectorAll('.card .ct')[1] && (document.querySelectorAll('.card .ct')[1].textContent = 'Communauté');
+  } else {
+    const couv = last6.map(r=>r.couverture||0);
+    const abo = last6.map(r=>r.abonnes||0);
+    drawBars('bc', couv, labels, '#e7411f');
+    drawBars('ba', abo, labels, '#7baaf7');
+    drawBars('be', eng, labels, '#1D9E75');
+    document.querySelectorAll('.card .ct')[0] && (document.querySelectorAll('.card .ct')[0].textContent = 'Couverture mensuelle');
+    document.querySelectorAll('.card .ct')[1] && (document.querySelectorAll('.card .ct')[1].textContent = 'Abonnés');
+  }
 }
 
 function drawBars(id, data, labels, color){
@@ -721,6 +760,8 @@ function renderHistTableFB(rows){
   const c2 = getClient();
   const lkTab = document.getElementById('tab-lk');
   if(lkTab) lkTab.style.display = (c2 && c2.plats.includes('lk')) ? '' : 'none';
+  const tkTab = document.getElementById('tab-tk');
+  if(tkTab) tkTab.style.display = (c2 && c2.plats.includes('tk')) ? '' : 'none';
   const tbody = document.getElementById('hist-body-fb');
   const titleEl = document.getElementById('hist-title');
   if(titleEl) titleEl.textContent = (p==='fb'?'Historique Facebook':'Historique Instagram')+' — 2026';
@@ -729,6 +770,8 @@ function renderHistTableFB(rows){
     thead.innerHTML='<th>Mois</th><th>Publications</th><th>Réels</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Taux</th>';
   } else if(p==='lk'){
     thead.innerHTML='<th>Mois</th><th>Publications</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th>';
+  } else if(p==='tk'){
+    thead.innerHTML='<th>Mois</th><th>Publications</th><th>Communauté</th><th>Vues pub.</th><th>Vues profil</th><th>Engagement</th><th>Taux</th>';
   } else {
     thead.innerHTML='<th>Mois</th><th>Posts</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th>';
   }
@@ -736,12 +779,27 @@ function renderHistTableFB(rows){
   tbody.innerHTML = [...rows].reverse().map((r,i)=>`
     <tr${i===0?' class="cur"':''}>
       <td><strong>${r.month}</strong></td>
-      ${p==='ig'?`<td>${r.publications||r.posts||'—'}</td><td>${r.reels||'0'}</td>`:p==='lk'?`<td>${r.publications||r.posts||'—'}</td>`:`<td>${r.posts||'—'}</td>`}
-      <td>${r.abonnes?fmt(r.abonnes):'—'}</td>
-      <td>${r.couverture?fmt(r.couverture):'—'}</td>
-      <td>${r.impressions?fmt(r.impressions):'—'}</td>
-      <td>${r.engagement?fmt(r.engagement):'—'}</td>
-      <td>${r.clics?fmt(r.clics):'—'}</td>
+      ${p==='tk' ? `
+        <td>${r.publications||r.posts||'—'}</td>
+        <td>${r.communaute?fmt(r.communaute):'—'}</td>
+        <td>${r.vuesPub?fmt(r.vuesPub):'—'}</td>
+        <td>${r.vuesProfil?fmt(r.vuesProfil):'—'}</td>
+        <td>${r.engagement?fmt(r.engagement):'—'}</td>
+      ` : p==='ig' ? `
+        <td>${r.publications||r.posts||'—'}</td><td>${r.reels||'0'}</td>
+        <td>${r.abonnes?fmt(r.abonnes):'—'}</td>
+        <td>${r.couverture?fmt(r.couverture):'—'}</td>
+        <td>${r.impressions?fmt(r.impressions):'—'}</td>
+        <td>${r.engagement?fmt(r.engagement):'—'}</td>
+        <td>${r.clics?fmt(r.clics):'—'}</td>
+      ` : `
+        <td>${p==='lk'?r.publications||r.posts:r.posts||'—'}</td>
+        <td>${r.abonnes?fmt(r.abonnes):'—'}</td>
+        <td>${r.couverture?fmt(r.couverture):'—'}</td>
+        <td>${r.impressions?fmt(r.impressions):'—'}</td>
+        <td>${r.engagement?fmt(r.engagement):'—'}</td>
+        <td>${r.clics?fmt(r.clics):'—'}</td>
+      `}
       <td class="rate">${r.taux||'—'}</td>
     </tr>`).join('');
 }
@@ -872,6 +930,25 @@ function extractFB(raw){
     return yA !== yB ? yA - yB : mA - mB;
   });
   return { months, singleMonth: false };
+}
+
+// ── Saisie manuelle TikTok ──
+function validateTK(){
+  const communaute  = parseInt(document.getElementById('tk-communaute').value)  || 0;
+  const publications= parseInt(document.getElementById('tk-publications').value) || 0;
+  const vuesPub     = parseInt(document.getElementById('tk-vues-pub').value)     || 0;
+  const vuesProfil  = parseInt(document.getElementById('tk-vues-profil').value)  || 0;
+  const engagement  = parseInt(document.getElementById('tk-engagement').value)   || 0;
+  const taux        = vuesPub > 0 ? ((engagement/vuesPub)*100).toFixed(2).replace('.',',')+'%' : '0%';
+
+  const data = { communaute, publications, posts:publications, vuesPub, vuesProfil, engagement, taux, singleMonth: true };
+  state.tkData = data;
+
+  // Fermer le formulaire et afficher la preview
+  document.getElementById('tk-form').style.display = 'none';
+  document.getElementById('tk-fname').textContent = `${publications} pub · ${vuesPub.toLocaleString('fr-FR')} vues`;
+  document.getElementById('dz-tk').classList.add('ok');
+  showPreview('tk', data);
 }
 
 // ── Extraction LinkedIn XLS — multi-mois ──
@@ -1011,9 +1088,12 @@ function showPreview(p, data){
   ] : p==='ig' ? [
     {l:'Publications',v:data.publications},{l:'Couverture',v:fmt(data.couverture)},{l:'Impressions',v:fmt(data.impressions)},
     {l:'Engagement',v:fmt(data.engagement)},{l:'Clics',v:fmt(data.clics)},{l:"Taux d'eng.",v:data.taux,r:true}
-  ] : [
+  ] : p==='lk' ? [
     {l:'Publications',v:data.publications},{l:'Couverture (uniques)',v:fmt(data.couverture)},{l:'Impressions',v:fmt(data.impressions)},
     {l:'Engagement',v:fmt(data.engagement)},{l:'Clics',v:fmt(data.clics)},{l:"Taux d'eng.",v:data.taux,r:true}
+  ] : [
+    {l:'Publications',v:data.publications},{l:'Communauté',v:fmt(data.communaute)},{l:'Vues pub.',v:fmt(data.vuesPub)},
+    {l:'Vues profil',v:fmt(data.vuesProfil)},{l:'Engagement',v:fmt(data.engagement)},{l:"Taux d'eng.",v:data.taux,r:true}
   ];
   document.getElementById('preview-metrics').innerHTML=metrics.map(m=>`<div class="pm"><div class="pml">${m.l}</div><div class="pmv${m.r?' r':''}">${m.v}</div></div>`).join('');
 }
@@ -1041,7 +1121,7 @@ async function sendToSheets(){
   const c=getClient(); if(!c){ toast('Sélectionnez un client',true); return; }
   const monthSel = document.getElementById('import-month-sel').value;
   // Pour les imports multi-mois, le mois n'est pas requis
-  const isMultiImport = (state.fbData && !state.fbData.singleMonth) || (state.igData && !state.igData.singleMonth) || (state.lkData && !state.lkData.singleMonth);
+  const isMultiImport = (state.fbData && !state.fbData.singleMonth) || (state.igData && !state.igData.singleMonth) || (state.lkData && !state.lkData.singleMonth) || (state.tkData && !state.tkData.singleMonth);
   const month = monthSel || (isMultiImport ? 'multi' : '');
   if(!month && !isMultiImport){ toast('Sélectionnez un mois', true); return; }
   const abonnes=parseInt(document.getElementById('abonnes-input').value)||0;
@@ -1077,6 +1157,7 @@ async function sendToSheets(){
     ...buildEntries(state.fbData, 'fb', month, abonnes),
     ...buildEntries(state.igData, 'ig', month, abonnes),
     ...buildEntries(state.lkData, 'lk', month, abonnes),
+    ...buildEntries(state.tkData, 'tk', month, 0),
   ];
 
   if(!entries.length){ toast('Aucun fichier importé', true); return; }
@@ -1116,17 +1197,23 @@ function resetImport(){
   document.getElementById('preview-card').style.display='none';
   document.getElementById('fb-fname').textContent='';
   document.getElementById('ig-fname').textContent='';
-  ['fb','ig','lk'].forEach(p=>{
+  ['fb','ig','lk','tk'].forEach(p=>{
     const dz=document.getElementById('dz-'+p); if(!dz) return;
     dz.classList.remove('ok'); dz.style.borderColor='';
     const icon=document.getElementById('dz-'+p+'-icon');
     if(!icon) return;
-    const colors={'fb':'rgba(24,95,165,0.15)','ig':'rgba(153,53,86,0.15)','lk':'rgba(26,86,204,0.15)'};
-    const strokes={'fb':'#85b7eb','ig':'#ed93b1','lk':'#7baaf7'};
+    const colors={'fb':'rgba(24,95,165,0.15)','ig':'rgba(153,53,86,0.15)','lk':'rgba(26,86,204,0.15)','tk':'rgba(26,26,46,0.15)'};
+    const strokes={'fb':'#85b7eb','ig':'#ed93b1','lk':'#7baaf7','tk':'#8888cc'};
     icon.style.background=colors[p];
     icon.innerHTML=`<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="${strokes[p]}" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v7M5 7l3 3 3-3M3 13h10"/></svg>`;
   });
   document.getElementById('abonnes-input').value='';
+  // Reset formulaire TK
+  ['tk-communaute','tk-publications','tk-vues-pub','tk-vues-profil','tk-engagement'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const tkForm=document.getElementById('tk-form'); if(tkForm) tkForm.style.display='none';
+  const tkFname=document.getElementById('tk-fname'); if(tkFname) tkFname.textContent='';
 }
 
 // ── Reporting ──
@@ -1488,7 +1575,7 @@ async function loadClientsFromSheets(){
         id:'c'+Date.now()+i, name,
         color:col[0], txtColor:col[1],
         plats:['fb','ig'], ton:'Chaleureux', 
-        data:{fb:[],ig:[],lk:[]}
+        data:{fb:[],ig:[],lk:[],tk:[]}
       };
     });
     saveClients();
@@ -1507,12 +1594,14 @@ async function loadClientDataFromSheets(clientName){
     const rangeFB = `'${safe}'!A1:H200`;
     const rangeIG = `'${safe}'!J1:Q200`;
     const rangeLK = `'${safe}'!S1:Z200`;
-    const [fbRes, igRes, lkRes] = await Promise.all([
+    const rangeTK = `'${safe}'!AB1:AH200`;
+    const [fbRes, igRes, lkRes, tkRes] = await Promise.all([
       sheetsRequest('GET', `/values/${encodeURIComponent(rangeFB)}`),
       sheetsRequest('GET', `/values/${encodeURIComponent(rangeIG)}`),
-      sheetsRequest('GET', `/values/${encodeURIComponent(rangeLK)}`)
+      sheetsRequest('GET', `/values/${encodeURIComponent(rangeLK)}`),
+      sheetsRequest('GET', `/values/${encodeURIComponent(rangeTK)}`)
     ]);
-    const fbRows = []; const igRows = []; const lkRows = [];
+    const fbRows = []; const igRows = []; const lkRows = []; const tkRows = [];
 
     // Parser robuste pour les nombres — gère espaces, virgules, points
     const parseNum = (v) => {
@@ -1569,9 +1658,18 @@ async function loadClientDataFromSheets(clientName){
       });
     });
 
+    parseRows(tkRes.values, r => {
+      if(!r[1] && !r[2]) return;
+      tkRows.push({
+        month: r[0], communaute: parseNum(r[1]), publications: parseNum(r[2]),
+        vuesPub: parseNum(r[3]), vuesProfil: parseNum(r[4]),
+        engagement: parseNum(r[5]), taux: r[6] || '', posts: parseNum(r[2])
+      });
+    });
+
     const c = getClient();
-    if(c){ c.data.fb = fbRows; c.data.ig = igRows; c.data.lk = lkRows; saveClients(); }
-    return { fb: fbRows, ig: igRows, lk: lkRows };
+    if(c){ c.data.fb = fbRows; c.data.ig = igRows; c.data.lk = lkRows; c.data.tk = tkRows; saveClients(); }
+    return { fb: fbRows, ig: igRows, lk: lkRows, tk: tkRows };
   } catch(e){
     toast('Erreur lecture données : ' + e.message, true);
     return { fb:[], ig:[], lk:[] };
@@ -1610,6 +1708,7 @@ async function createSheetTab(clientName){
       clearRanges.push(`${safe}!B${start}:H${end}`);
       clearRanges.push(`${safe}!K${start}:Q${end}`);
       clearRanges.push(`${safe}!T${start}:Z${end}`);
+      clearRanges.push(`${safe}!AC${start}:AH${end}`);
     });
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values:batchClear`,
@@ -1661,6 +1760,10 @@ async function formatSheetTab(sheetId){
     YEAR_BG: {red:0.992,green:0.941,blue:0.925}, // #FDF0EC
     TXT:     {red:0.102,green:0.102,blue:0.102}, // #1A1A1A
     TXT2:    {red:0.420,green:0.408,blue:0.376}, // #6B6860
+    TK_HDR:  {red:0.102,green:0.102,blue:0.180}, // #1A1A2E
+    TK_BG:   {red:0.941,green:0.941,blue:0.961}, // #F0F0F5
+    TK_TXT:  {red:0.102,green:0.102,blue:0.180}, // #1A1A2E
+    TOT_TK:  {red:0.847,green:0.847,blue:0.910}, // #D8D8E8
   };
 
   function bg(color){ return {backgroundColor:color}; }
@@ -1700,7 +1803,7 @@ async function formatSheetTab(sheetId){
   const requests = [];
 
   // Largeurs colonnes
-  const COL_WIDTHS = [120,90,70,90,90,90,90,80, 20, 120,90,80,70,90,90,90,80, 20, 120,90,80,90,90,90,70,80];
+  const COL_WIDTHS = [120,90,70,90,90,90,90,80, 20, 120,90,80,70,90,90,90,80, 20, 120,90,80,90,90,90,70,80, 20, 120,90,90,90,90,80,80];
   COL_WIDTHS.forEach((w,i) => requests.push(colWidth(i,w)));
 
   // Hauteur ligne 1 (bandeau)
@@ -1915,16 +2018,17 @@ async function ensureYearExists(sheetName, year){
   const FB_HDR = ["Mois","Abonnés","Posts","Couverture","Impressions","Engagement","Clics totaux","Taux d'eng."];
   const IG_HDR = ["Mois","Communauté","Publications","Réels","Couverture","Impressions","Engagement","Taux d'eng."];
   const LK_HDR = ["Mois","Abonnés","Publications","Impressions","Couverture","Engagement","Clics","Taux d'eng."];
+  const TK_HDR = ["Mois","Communauté","Publications","Vues pub.","Vues profil","Engagement","Taux d'eng."];
 
   const sectionValues = [
     [String(year)], // label année
-    ["FACEBOOK","","","","","","","","","INSTAGRAM","","","","","","","","","LINKEDIN"],
-    [...FB_HDR,"", ...IG_HDR,"", ...LK_HDR]
+    ["FACEBOOK","","","","","","","","","INSTAGRAM","","","","","","","","","LINKEDIN","","","","","","","","","TIKTOK"],
+    [...FB_HDR,"", ...IG_HDR,"", ...LK_HDR,"", ...TK_HDR]
   ];
   MOIS_LIST_G.forEach(mois => {
-    sectionValues.push([mois,"","","","","","","","", mois,"","","","","","","","", mois,"","","","","","",""]);
+    sectionValues.push([mois,"","","","","","","","", mois,"","","","","","","","", mois,"","","","","","","","", mois,"","","","","",""]);
   });
-  sectionValues.push(["Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel"]);
+  sectionValues.push(["Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel"]);
   sectionValues.push([]); // spacer
 
   // Écrire les données (à partir de la ligne 3, 1-indexed)
@@ -1968,6 +2072,10 @@ async function formatYearSection(sheetId, baseRowIdx, year){
     WHITE:   {red:1,green:1,blue:1},
     ROW_ALT: {red:0.973,green:0.969,blue:0.961},
     TXT:     {red:0.102,green:0.102,blue:0.102},
+    TK_HDR:  {red:0.102,green:0.102,blue:0.180},
+    TK_BG:   {red:0.941,green:0.941,blue:0.961},
+    TK_TXT:  {red:0.102,green:0.102,blue:0.180},
+    TOT_TK:  {red:0.847,green:0.847,blue:0.910},
   };
   function bg(c){return {backgroundColor:c};}
   function fg(c){return {foregroundColor:c};}
@@ -1997,12 +2105,15 @@ async function formatYearSection(sheetId, baseRowIdx, year){
   requests.push(rangeFmt(b+1,9,b+2,17,[bg(C.IG_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
   requests.push(merge(b+1,18,b+2,26));
   requests.push(rangeFmt(b+1,18,b+2,26,[bg(C.LK_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+  requests.push(merge(b+1,27,b+2,34));
+  requests.push(rangeFmt(b+1,27,b+2,34,[bg(C.TK_HDR),{textFormat:{...fg({red:1,green:1,blue:1}),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
 
   // Headers colonnes
   requests.push(rowH(b+2,30));
   requests.push(rangeFmt(b+2,0,b+3,8,[bg(C.FB_BG),{textFormat:{...fg(C.FB_TXT),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
   requests.push(rangeFmt(b+2,9,b+3,17,[bg(C.IG_BG),{textFormat:{...fg(C.IG_TXT),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
   requests.push(rangeFmt(b+2,18,b+3,26,[bg(C.LK_BG),{textFormat:{...fg(C.LK_TXT),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
+  requests.push(rangeFmt(b+2,27,b+3,34,[bg(C.TK_BG),{textFormat:{...fg(C.TK_TXT),bold:true,fontSize:8}},{horizontalAlignment:'CENTER'}]));
 
   // Lignes mois
   for(let m=0; m<12; m++){
@@ -2018,6 +2129,9 @@ async function formatYearSection(sheetId, baseRowIdx, year){
     requests.push(rangeFmt(r,18,r+1,26,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}}]));
     requests.push(rangeFmt(r,19,r+1,26,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}},{horizontalAlignment:'CENTER'}]));
     requests.push(rangeFmt(r,25,r+1,26,[bg(bgc),{textFormat:{...fg(C.BRAND),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(r,27,r+1,34,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}}]));
+    requests.push(rangeFmt(r,28,r+1,34,[bg(bgc),{textFormat:{...fg(C.TXT),fontSize:9}},{horizontalAlignment:'CENTER'}]));
+    requests.push(rangeFmt(r,33,r+1,34,[bg(bgc),{textFormat:{...fg(C.BRAND),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
   }
 
   // Totaux
@@ -2026,6 +2140,7 @@ async function formatYearSection(sheetId, baseRowIdx, year){
   requests.push(rangeFmt(totR,0,totR+1,8,[bg(C.TOT_FB),{textFormat:{...fg(C.FB_TXT),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
   requests.push(rangeFmt(totR,9,totR+1,17,[bg(C.TOT_IG),{textFormat:{...fg(C.IG_TXT),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
   requests.push(rangeFmt(totR,18,totR+1,26,[bg(C.TOT_LK),{textFormat:{...fg(C.LK_TXT),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
+  requests.push(rangeFmt(totR,27,totR+1,34,[bg(C.TOT_TK),{textFormat:{...fg(C.TK_TXT),bold:true,fontSize:9}},{horizontalAlignment:'CENTER'}]));
 
   await sheetsRequest('POST', ':batchUpdate', { requests });
 }
@@ -2102,6 +2217,18 @@ async function writeToSheets(clientName, platform, data, month){
       data.taux || ''
     ]];
     range = `'${sheetName}'!S${row}:Z${row}`;
+  } else if(platform === 'tk'){
+    // AB:AH — Mois | Communauté | Publications | Vues pub | Vues profil | Engagement | Taux
+    values = [[
+      month,
+      data.communaute || '',
+      data.publications || data.posts || '',
+      data.vuesPub || '',
+      data.vuesProfil || '',
+      data.engagement || '',
+      data.taux || ''
+    ]];
+    range = `'${sheetName}'!AB${row}:AH${row}`;
   }
 
   try {
@@ -2128,7 +2255,7 @@ async function addClient(){
   const name=document.getElementById('new-client-inp').value.trim(); if(!name){ toast('Saisissez un nom de client',true); return; }
   const colors=[['rgba(231,65,31,0.2)','#f9a488'],['rgba(15,110,86,0.2)','#5dcaa5'],['rgba(24,95,165,0.2)','#85b7eb'],['rgba(153,53,86,0.2)','#ed93b1'],['rgba(186,117,23,0.2)','#FAC775'],['rgba(83,74,183,0.2)','#AFA9EC']];
   const c=colors[state.clients.length%colors.length];
-  state.clients.push({id:'c'+Date.now(),name,color:c[0],txtColor:c[1],plats:['fb','ig'],ton:'Chaleureux',data:{fb:[],ig:[],lk:[]}});
+  state.clients.push({id:'c'+Date.now(),name,color:c[0],txtColor:c[1],plats:['fb','ig'],ton:'Chaleureux',data:{fb:[],ig:[],lk:[],tk:[]}});
   saveClients(); document.getElementById('new-client-inp').value='';
   renderSidebarClients(); renderSettingsClients();
   if(isTokenValid()) await createSheetTab(name);
