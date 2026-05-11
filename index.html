@@ -552,6 +552,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
       <div class="plat on-fb" onclick="togglePlat(this,'fb')"><div class="dot dot-fb"></div>Facebook</div>
       <div class="plat on-ig" onclick="togglePlat(this,'ig')"><div class="dot dot-ig"></div>Instagram</div>
       <div class="plat" onclick="togglePlat(this,'lk')"><div class="dot" style="background:#7baaf7"></div>LinkedIn</div>
+      <div class="plat" onclick="togglePlat(this,'tk')"><div class="dot" style="background:#1a1a2e"></div>TikTok</div>
     </div>
     <div class="modal-lbl">Ton des messages IA</div>
     <div class="ton-row" id="modal-tons">
@@ -2283,7 +2284,8 @@ function openModal(id){
   document.getElementById('modal-title').textContent=`Configurer — ${c.name}`;
   
   document.querySelectorAll('#modal-plats .plat').forEach(el=>{
-    const p=el.querySelector('.dot').nextSibling.textContent.trim().toLowerCase().slice(0,2);
+    const txt=el.querySelector('.dot').nextSibling.textContent.trim().toLowerCase();
+    const p=txt==='tiktok'?'tk':txt.slice(0,2);
     el.className='plat'+(c.plats.includes(p)?` on-${p}`:'');
   });
   document.querySelectorAll('#modal-tons .ton').forEach(el=>{
