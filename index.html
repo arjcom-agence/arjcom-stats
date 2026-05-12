@@ -58,6 +58,12 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 .sb-search input::placeholder{color:var(--txt3)}
 .sb-search svg{position:absolute;right:8px;top:50%;transform:translateY(-50%);opacity:0.35;pointer-events:none}
 .sb-fav-sep{font-size:9px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:0.06em;padding:6px 10px 2px;font-family:'Montserrat',sans-serif}
+.sb-toggle{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt3);user-select:none;border-radius:6px;margin:0 6px}
+.sb-toggle:hover{background:var(--bg);color:var(--txt2)}
+.sb-toggle svg{transition:transform .2s}
+.sb-toggle.open svg{transform:rotate(180deg)}
+.cli-late{width:7px;height:7px;border-radius:50%;background:#e7411f;flex-shrink:0;margin-left:auto;opacity:0.85}
+.cli-late-wrap{display:flex;align-items:center;gap:4px;margin-left:auto}
 .cli-fav-btn{opacity:0;transition:opacity .15s;background:none;border:none;cursor:pointer;padding:2px;color:var(--txt3);flex-shrink:0;line-height:1;margin-left:auto}
 .cli:hover .cli-fav-btn{opacity:1}
 .cli-fav-btn.active{opacity:1;color:#f5c842}
@@ -233,9 +239,38 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 .google-cta{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:12px;padding:20px;text-align:center;margin-bottom:14px}
 .google-cta-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#f0ede8;margin-bottom:6px}
 .google-cta-sub{font-family:'DM Sans',sans-serif;font-size:11px;color:#888480;margin-bottom:14px}
+
+/* ── Page de connexion ── */
+.login-overlay{position:fixed;inset:0;background:#0f0f0f;z-index:2000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.login-card{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:20px;padding:40px;width:360px;display:flex;flex-direction:column;align-items:center;gap:24px;text-align:center}
+.login-logo-wrap{width:72px;height:72px;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff}
+.login-logo-wrap img{width:100%;height:100%;object-fit:cover}
+.login-title{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700;color:#f0ede8;line-height:1.2}
+.login-sub{font-family:'DM Sans',sans-serif;font-size:13px;color:#888480;margin-top:-14px;line-height:1.5}
+.login-btn-google{display:flex;align-items:center;gap:10px;padding:0 20px;height:44px;background:#e7411f;color:#fff;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;cursor:pointer;width:100%;justify-content:center;transition:opacity .15s}
+.login-btn-google:hover{opacity:.88}
+.login-note{font-family:'DM Sans',sans-serif;font-size:11px;color:#555250;margin-top:-10px}
 </style>
 </head>
 <body>
+
+<!-- ── Page de connexion ── -->
+<div class="login-overlay" id="login-overlay" style="display:none">
+  <div class="login-card">
+    <div class="login-logo-wrap">
+      <img id="login-logo" src="" alt="Arjcom">
+    </div>
+    <div>
+      <div class="login-title">Arjcom — Stats</div>
+      <div class="login-sub">Pôle réseaux sociaux<br>Connectez-vous avec votre compte agence pour accéder à l'outil.</div>
+    </div>
+    <button class="login-btn-google" onclick="connectSheets()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 6.294C4.672 4.167 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+      Se connecter avec Google
+    </button>
+    <div class="login-note">Accès réservé aux comptes @arjcom.fr</div>
+  </div>
+</div>
 
 <div class="app" id="app">
   <!-- ── Sidebar ── -->
@@ -541,10 +576,6 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
               <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt3)">Clé stockée localement dans votre navigateur · jamais transmise à des tiers</div>
             </div>
 
-            <div class="card">
-              <div class="ct" style="margin-bottom:10px">Préférences</div>
-              
-            </div>
           </div>
         </div>
       </div>
@@ -598,42 +629,80 @@ function toggleFav(id, e){
   renderSidebarClients();
 }
 
+// Détecter si un client est en retard (pas de stats depuis 3 mois)
+function isClientLate(c){
+  const allRows = [...(c.data?.fb||[]), ...(c.data?.ig||[]), ...(c.data?.lk||[]), ...(c.data?.tk||[])];
+  if(!allRows.length) return false;
+  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  let latestDate = null;
+  allRows.forEach(r => {
+    if(!r.month) return;
+    const parts = r.month.toLowerCase().split(' ');
+    const mIdx = MOIS.indexOf(parts[0]);
+    const yr = parseInt(parts[1]);
+    if(mIdx === -1 || isNaN(yr)) return;
+    const d = new Date(yr, mIdx, 1);
+    if(!latestDate || d > latestDate) latestDate = d;
+  });
+  if(!latestDate) return false;
+  const now = new Date();
+  const diffMonths = (now.getFullYear()-latestDate.getFullYear())*12+(now.getMonth()-latestDate.getMonth());
+  return diffMonths >= 3;
+}
+
+let sidebarExpanded = JSON.parse(localStorage.getItem('arjcom-sb-expanded')||'false');
+
+function toggleSidebar(){
+  sidebarExpanded = !sidebarExpanded;
+  localStorage.setItem('arjcom-sb-expanded', JSON.stringify(sidebarExpanded));
+  renderSidebarClients();
+}
+
 function renderSidebarClients(){
   const el = document.getElementById('clients-list');
   if(!el) return;
   const favs = getFavs();
   const query = (document.getElementById('sb-search-inp')?.value||'').toLowerCase().trim();
 
-  // Filtrer selon recherche
-  let clients = state.clients.filter(c =>
-    !query || c.name.toLowerCase().includes(query)
-  );
-
-  // Séparer favoris et autres
+  let clients = state.clients.filter(c => !query || c.name.toLowerCase().includes(query));
   const favClients = clients.filter(c => favs.includes(c.id));
   const otherClients = clients.filter(c => !favs.includes(c.id));
 
-  const renderClient = (c) => `
-    <div class="cli ${c.id===state.currentClient?'on':''}" onclick="selectClient('${c.id}')">
+  const renderClient = (c) => {
+    const late = isClientLate(c);
+    const isFav = favs.includes(c.id);
+    return `<div class="cli ${c.id===state.currentClient?'on':''}" onclick="selectClient('${c.id}')">
       <div class="cli-av" style="background:${c.color};color:${c.txtColor}">${c.name.slice(0,2).toUpperCase()}</div>
       <span class="cli-name">${c.name}</span>
-      <button class="cli-fav-btn ${favs.includes(c.id)?'active':''}" onclick="toggleFav('${c.id}',event)" title="${favs.includes(c.id)?'Retirer des favoris':'Ajouter aux favoris'}">
-        <svg width="11" height="11" viewBox="0 0 12 12" fill="${favs.includes(c.id)?'currentColor':'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5L6 9l-3 1.5.5-3.5L1 4.5 4.5 4z"/>
-        </svg>
-      </button>
+      <div class="cli-late-wrap">
+        ${late?'<div class="cli-late" title="Aucune stat depuis 3 mois"></div>':''}
+        <button class="cli-fav-btn ${isFav?'active':''}" onclick="toggleFav('${c.id}',event)" title="${isFav?'Retirer des favoris':'Ajouter aux favoris'}">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="${isFav?'currentColor':'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5L6 9l-3 1.5.5-3.5L1 4.5 4.5 4z"/></svg>
+        </button>
+      </div>
     </div>`;
+  };
 
   let html = '';
 
-  if(favClients.length && !query){
+  if(favClients.length){
     html += `<div class="sb-fav-sep">⭐ Favoris</div>`;
     html += favClients.map(renderClient).join('');
-    if(otherClients.length)
-      html += `<div class="sb-fav-sep" style="margin-top:4px">Tous les clients</div>`;
   }
 
-  html += otherClients.map(renderClient).join('');
+  if(otherClients.length){
+    if(!query){
+      const lateCount = otherClients.filter(isClientLate).length;
+      html += `<div class="sb-toggle ${sidebarExpanded?'open':''}" onclick="toggleSidebar()">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3l3 3 3-3"/></svg>
+        ${sidebarExpanded?'Réduire':'Tous les clients ('+otherClients.length+')'}
+        ${lateCount && !sidebarExpanded ? '<div class="cli-late" style="margin-left:4px" title="'+lateCount+' client(s) en retard"></div>' : ''}
+      </div>`;
+      if(sidebarExpanded) html += otherClients.map(renderClient).join('');
+    } else {
+      html += otherClients.map(renderClient).join('');
+    }
+  }
 
   if(!clients.length && query)
     html = `<div style="padding:12px 10px;font-size:11px;color:var(--txt3)">Aucun résultat</div>`;
@@ -645,6 +714,7 @@ function renderSidebarClients(){
 
   el.innerHTML = html;
 }
+
 
 // ── Rendu settings clients ──
 function renderSettingsClients(){
@@ -952,13 +1022,13 @@ function extractFB(raw){
   // Si un seul mois — retourner comme avant (compatibilité)
   if(months.length === 1){
     const m = months[0];
-    const taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+    const taux = m.couverture > 0 ? (((m.engagement + (m.clics||0))/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
     return { ...m, taux, singleMonth: true };
   }
 
   // Multi-mois — retourner le tableau
   months.forEach(m => {
-    m.taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+    m.taux = m.couverture > 0 ? (((m.engagement + (m.clics||0))/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
   });
   // Trier chronologiquement
   months.sort((a,b) => {
@@ -1046,7 +1116,7 @@ async function extractLK(file){
             couverture: couv,
             engagement: Math.round(eng),
             clics: Math.round(d.clics),
-            taux: couv > 0 ? (eng/couv*100).toFixed(2).replace('.',',')+'%' : '0%'
+            taux: couv > 0 ? ((eng + (d.clics||0))/couv*100).toFixed(2).replace('.',',')+'%' : '0%'
           };
         });
 
@@ -1099,13 +1169,13 @@ function extractIG(raw){
   if(months.length === 1){
     const m = months[0];
     m.posts = m.publications;
-    m.taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+    m.taux = m.couverture > 0 ? (((m.engagement + (m.clics||0))/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
     return { ...m, singleMonth: true };
   }
 
   months.forEach(m => {
     m.posts = m.publications;
-    m.taux = m.couverture > 0 ? ((m.engagement/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
+    m.taux = m.couverture > 0 ? (((m.engagement + m.clics)/m.couverture)*100).toFixed(2).replace('.',',')+'%' : '0%';
   });
   months.sort((a,b) => {
     const [mA, yA] = [MOIS_FR_IDX.indexOf(a.key.split(' ')[0])+1, parseInt(a.key.split(' ')[1])];
@@ -1550,6 +1620,8 @@ function connectSheets(){
       } catch(e) {
         document.getElementById('user-name').textContent = 'Connecté';
       }
+      hideSessionExpiredBanner();
+      document.getElementById('login-overlay').style.display = 'none';
       toast('Connecté — chargement des clients...');
       const cta = document.getElementById('google-cta-banner');
       if(cta) cta.remove();
@@ -1613,8 +1685,39 @@ async function sheetsRequest(method, endpoint, body){
   };
   if(body) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
+  if(res.status === 401){
+    // Token expiré — alerter immédiatement
+    showSessionExpiredBanner();
+    throw new Error('Session expirée');
+  }
   if(!res.ok){ const e = await res.json(); throw new Error(e.error?.message || 'Erreur Sheets'); }
   return res.json();
+}
+
+function showSessionExpiredBanner(){
+  if(document.getElementById('session-banner')) return; // déjà affiché
+  const banner = document.createElement('div');
+  banner.id = 'session-banner';
+  banner.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:1000;background:#c0392b;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-family:'DM Sans',sans-serif;font-size:13px;gap:12px`;
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v3M8 11h.01"/></svg>
+      <span>Votre session Google a expiré — les données ne sont plus synchronisées.</span>
+    </div>
+    <button onclick="reconnectSheets()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;white-space:nowrap">
+      Reconnecter
+    </button>`;
+  document.body.prepend(banner);
+}
+
+function hideSessionExpiredBanner(){
+  const b = document.getElementById('session-banner');
+  if(b) b.remove();
+}
+
+function reconnectSheets(){
+  hideSessionExpiredBanner();
+  connectSheets();
 }
 
 // Charger les clients depuis les onglets du Sheets
@@ -2390,12 +2493,20 @@ function toast(msg, err=false){
 async function initApp(){
   if(state.apiKey) document.getElementById('api-key-inp').value=state.apiKey;
   if(isTokenValid()){
+    document.getElementById('login-overlay').style.display = 'none';
     await loadClientsFromSheets();
     renderSheetsStatus();
   } else {
-    renderSidebarClients();
-    renderGoogleCTA();
+    showLoginPage();
   }
+}
+
+function showLoginPage(){
+  // Copier le logo dans la page de connexion
+  const sbLogo = document.querySelector('.sb-logo img');
+  const loginLogo = document.getElementById('login-logo');
+  if(sbLogo && loginLogo) loginLogo.src = sbLogo.src;
+  document.getElementById('login-overlay').style.display = 'flex';
 }
 
 function renderGoogleCTA(){
