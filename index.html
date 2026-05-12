@@ -2402,38 +2402,62 @@ async function renderTeamSettings(){
   if(!el) return;
   el.innerHTML = '<div style="font-size:11px;color:var(--txt2)">Chargement...</div>';
   const team = await loadTeamFromSheets();
+  window._teamCache = team;
 
   el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
       ${team.map((cm,i) => `
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt);flex:1">${cm.name}</div>
-            <span style="font-size:10px;color:var(--txt2);background:var(--bg-card);padding:2px 6px;border-radius:4px">${cm.role==='admin'?'Responsable':'CM'}</span>
-            ${cm.role !== 'admin' ? `<button onclick="removeCM(${i})" style="background:none;border:none;cursor:pointer;color:var(--txt3);padding:0;line-height:1">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg>
-            </button>` : ''}
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--brand-l);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--brand);flex-shrink:0">
+            ${cm.name.slice(0,2).toUpperCase()}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)">${cm.name}</div>
+            <div style="font-size:11px;color:var(--txt2)">${cm.role==='admin' ? 'Tous les clients' : (Array.isArray(cm.clients) ? cm.clients.length + ' client(s) assigné(s)' : '0 client(s)')}</div>
           </div>
           ${cm.role !== 'admin' ? `
-          <div style="font-size:11px;color:var(--txt2);margin-bottom:6px">Clients assignés :</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${state.clients.map(c => `
-              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 7px;border-radius:6px;border:1px solid var(--border);font-size:11px;color:var(--txt);background:${Array.isArray(cm.clients)&&cm.clients.includes(c.name)?'rgba(231,65,31,0.1)':'var(--bg-card)'}">
-                <input type="checkbox" ${Array.isArray(cm.clients)&&cm.clients.includes(c.name)?'checked':''} onchange="toggleClientForCM(${i},'${c.name.replace(/'/g,"\'")}',this.checked)" style="accent-color:var(--brand)">
-                ${c.name}
-              </label>
-            `).join('')}
-          </div>` : '<div style="font-size:11px;color:var(--txt2)">Accès à tous les clients</div>'}
+            <div style="position:relative">
+              <button onclick="toggleCMDropdown(${i})" style="padding:4px 10px;height:28px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--txt);cursor:pointer;font-family:'DM Sans',sans-serif">
+                Clients ▾
+              </button>
+              <div id="cm-dd-${i}" style="display:none;position:absolute;right:0;top:32px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;width:220px;z-index:200;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.3)">
+                ${state.clients.map(c => `
+                  <label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--txt)" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+                    <input type="checkbox" ${Array.isArray(cm.clients)&&cm.clients.includes(c.name)?'checked':''} onchange="toggleClientForCM(${i},'${c.name.replace(/'/g,"\'").replace(/"/g,'\"')}',this.checked)" style="accent-color:var(--brand);flex-shrink:0">
+                    <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            <button onclick="removeCM(${i})" style="background:none;border:none;cursor:pointer;color:var(--txt3);padding:4px;flex-shrink:0" title="Supprimer">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg>
+            </button>
+          ` : ''}
         </div>
       `).join('')}
     </div>
     <div style="display:flex;gap:8px">
       <input class="inp" id="new-cm-inp" type="text" placeholder="Prénom du CM" style="flex:1;height:36px">
       <button class="btn-p" style="height:36px;padding:0 14px;white-space:nowrap" onclick="addCM()">+ Ajouter</button>
-    </div>
-  `;
-  window._teamCache = team;
+    </div>`;
+
+  // Fermer les dropdowns au clic extérieur
+  document.addEventListener('click', function closeDDs(e){
+    if(!e.target.closest('[id^="cm-dd-"]') && !e.target.closest('button[onclick^="toggleCMDropdown"]')){
+      document.querySelectorAll('[id^="cm-dd-"]').forEach(d=>d.style.display='none');
+    }
+  }, {once:false, capture:false});
 }
+
+function toggleCMDropdown(idx){
+  const dd = document.getElementById(`cm-dd-${idx}`);
+  if(!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  // Fermer tous les autres
+  document.querySelectorAll('[id^="cm-dd-"]').forEach(d=>d.style.display='none');
+  dd.style.display = isOpen ? 'none' : 'block';
+}
+
 
 async function addCM(){
   const name = document.getElementById('new-cm-inp').value.trim();
