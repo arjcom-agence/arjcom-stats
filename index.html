@@ -309,15 +309,6 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
     </div>
     <div class="sb-clients" id="clients-list"></div>
 
-    <div class="sb-bottom">
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px">
-        <div class="uav" id="user-av">?</div>
-        <div>
-          <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)" id="user-name">Non connecté</div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt3)" id="user-email">CM · SMO</div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- ── Main ── -->
@@ -1608,18 +1599,6 @@ function connectSheets(){
       tokenExpiry = Date.now() + (resp.expires_in * 1000);
       localStorage.setItem('arjcom-gtoken', googleAccessToken);
       localStorage.setItem('arjcom-gtoken-expiry', tokenExpiry.toString());
-      // Récupérer les infos utilisateur Google
-      try {
-        const uRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { 'Authorization': `Bearer ${resp.access_token}` }
-        });
-        const uData = await uRes.json();
-        const name = uData.name || uData.email || 'Connecté';
-        document.getElementById('user-name').textContent = name;
-        document.getElementById('user-email').textContent = uData.email || 'Google';
-      } catch(e) {
-        document.getElementById('user-name').textContent = 'Connecté';
-      }
       hideSessionExpiredBanner();
       document.getElementById('login-overlay').style.display = 'none';
       toast('Connecté — chargement des clients...');
@@ -1642,8 +1621,6 @@ function disconnectSheets(){
   saveClients();
   renderSidebarClients();
   renderSheetsStatus();
-  document.getElementById('user-name').textContent = 'Non connecté';
-  document.getElementById('user-email').textContent = 'CM · SMO';
   toast('Déconnecté de Google Sheets');
 }
 
