@@ -52,6 +52,15 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
 .nav svg{width:15px;height:15px;flex-shrink:0}
 .nbadge{margin-left:auto;background:var(--brand);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:700}
 .sb-clients{padding:4px 6px;flex:1}
+.sb-search{margin:2px 6px 4px;position:relative}
+.sb-search input{width:100%;height:26px;padding:0 26px 0 9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;font-size:11px;color:var(--txt);font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box}
+.sb-search input:focus{border-color:var(--brand)}
+.sb-search input::placeholder{color:var(--txt3)}
+.sb-search svg{position:absolute;right:8px;top:50%;transform:translateY(-50%);opacity:0.35;pointer-events:none}
+.sb-fav-sep{font-size:9px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:0.06em;padding:6px 10px 2px;font-family:'Montserrat',sans-serif}
+.cli-fav-btn{opacity:0;transition:opacity .15s;background:none;border:none;cursor:pointer;padding:2px;color:var(--txt3);flex-shrink:0;line-height:1;margin-left:auto}
+.cli:hover .cli-fav-btn{opacity:1}
+.cli-fav-btn.active{opacity:1;color:#f5c842}
 .cli{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px;user-select:none;transition:background .1s}
 .cli:hover{background:rgba(255,255,255,0.04)}
 .cli.on{background:var(--sb-on-bg)}
@@ -259,6 +268,10 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
     </div>
 
     <div class="sb-sec">Mes clients</div>
+    <div class="sb-search">
+      <input type="text" id="sb-search-inp" placeholder="Rechercher..." oninput="renderSidebarClients()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/></svg>
+    </div>
     <div class="sb-clients" id="clients-list"></div>
 
     <div class="sb-bottom">
@@ -266,7 +279,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
         <div class="uav" id="user-av">?</div>
         <div>
           <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)" id="user-name">Non connecté</div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt3);cursor:pointer" id="user-email" onclick="if(isTokenValid())showProfilePicker()" title="Changer de profil">CM · SMO</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--txt3)" id="user-email">CM · SMO</div>
         </div>
       </div>
     </div>
@@ -504,13 +517,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
           <div style="display:flex;flex-direction:column;gap:14px">
             <div class="card">
               <div class="ct" style="margin-bottom:12px">Connexion Google Sheets</div>
-              <!-- Section Équipe -->
-          <div class="set-s">Équipe</div>
-          <div class="card" style="padding:14px" id="team-settings">
-            <div style="font-size:11px;color:var(--txt2)">Connectez-vous à Google pour gérer l'équipe.</div>
-          </div>
-          <div class="set-s">Connexion</div>
-          <div id="sheets-status-block">
+              <div id="sheets-status-block">
                 <div class="sheets-err">
                   <div style="width:9px;height:9px;border-radius:50%;background:#f09595;flex-shrink:0"></div>
                   <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#f09595;font-weight:500">Non connecté</div>
@@ -570,7 +577,6 @@ const state = {
   apiKey: localStorage.getItem('arjcom-apikey') || '',
   sheetsId: localStorage.getItem('arjcom-sheetsid') || '',
     modalClient: null,
-  currentCM: JSON.parse(localStorage.getItem('arjcom-cm') || 'null'),
   channel: 'wa',
 };
 
@@ -580,17 +586,63 @@ function saveClients(){ localStorage.setItem('arjcom-clients', JSON.stringify(st
 function getClient(){ return state.clients.find(c=>c.id===state.currentClient); }
 
 // ── Rendu sidebar clients ──
+// ── Favoris (localStorage) ──
+function getFavs(){ return JSON.parse(localStorage.getItem('arjcom-favs')||'[]'); }
+function toggleFav(id, e){
+  e.stopPropagation();
+  const favs = getFavs();
+  const idx = favs.indexOf(id);
+  if(idx === -1) favs.push(id); else favs.splice(idx,1);
+  localStorage.setItem('arjcom-favs', JSON.stringify(favs));
+  renderSidebarClients();
+}
+
 function renderSidebarClients(){
   const el = document.getElementById('clients-list');
-  el.innerHTML = state.clients.map(c=>`
+  if(!el) return;
+  const favs = getFavs();
+  const query = (document.getElementById('sb-search-inp')?.value||'').toLowerCase().trim();
+
+  // Filtrer selon recherche
+  let clients = state.clients.filter(c =>
+    !query || c.name.toLowerCase().includes(query)
+  );
+
+  // Séparer favoris et autres
+  const favClients = clients.filter(c => favs.includes(c.id));
+  const otherClients = clients.filter(c => !favs.includes(c.id));
+
+  const renderClient = (c) => `
     <div class="cli ${c.id===state.currentClient?'on':''}" onclick="selectClient('${c.id}')">
       <div class="cli-av" style="background:${c.color};color:${c.txtColor}">${c.name.slice(0,2).toUpperCase()}</div>
       <span class="cli-name">${c.name}</span>
-    </div>
-  `).join('') + `<div class="add-cli" onclick="sw('settings',document.getElementById('n-settings'))">
+      <button class="cli-fav-btn ${favs.includes(c.id)?'active':''}" onclick="toggleFav('${c.id}',event)" title="${favs.includes(c.id)?'Retirer des favoris':'Ajouter aux favoris'}">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="${favs.includes(c.id)?'currentColor':'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5L6 9l-3 1.5.5-3.5L1 4.5 4.5 4z"/>
+        </svg>
+      </button>
+    </div>`;
+
+  let html = '';
+
+  if(favClients.length && !query){
+    html += `<div class="sb-fav-sep">⭐ Favoris</div>`;
+    html += favClients.map(renderClient).join('');
+    if(otherClients.length)
+      html += `<div class="sb-fav-sep" style="margin-top:4px">Tous les clients</div>`;
+  }
+
+  html += otherClients.map(renderClient).join('');
+
+  if(!clients.length && query)
+    html = `<div style="padding:12px 10px;font-size:11px;color:var(--txt3)">Aucun résultat</div>`;
+
+  html += `<div class="add-cli" onclick="sw('settings',document.getElementById('n-settings'))">
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 1v10M1 6h10"/></svg>
     Ajouter un client
   </div>`;
+
+  el.innerHTML = html;
 }
 
 // ── Rendu settings clients ──
@@ -652,7 +704,6 @@ function sw(name, nav){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.getElementById('p-'+name).classList.add('on');
   if(name === 'report'){ renderAnneeSel(); renderReport(); }
-  if(name === 'settings' && isTokenValid()){ renderTeamSettings(); }
   const c = getClient();
   const cfg = navCfg[name];
   document.getElementById('tb-t').textContent = cfg.t || (c ? c.name : '—');
@@ -1480,13 +1531,11 @@ function connectSheets(){
       } catch(e) {
         document.getElementById('user-name').textContent = 'Connecté';
       }
+      toast('Connecté — chargement des clients...');
       const cta = document.getElementById('google-cta-banner');
       if(cta) cta.remove();
-      // Charger tous les clients d'abord
       await loadClientsFromSheets();
       renderSheetsStatus();
-      // Puis afficher le picker de profil CM
-      await showProfilePicker();
     }
   });
   client.requestAccessToken();
@@ -2285,213 +2334,16 @@ function logout(){
 // ══════════════════════════════════════════════════════
 
 // Lire les profils CM depuis l'onglet Equipe du Sheets
-async function loadTeamFromSheets(){
-  try {
-    const range = encodeURIComponent("Equipe!A4:C50");
-    const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${range}`,
-      { headers: { 'Authorization': `Bearer ${googleAccessToken}` } }
-    );
-    const data = await res.json();
-    const rows = data.values || [];
-    return rows.map(r => ({
-      name: r[0] || '',
-      role: r[1] || 'cm',
-      clients: r[2] === 'ALL' ? 'ALL' : (r[2] ? r[2].split(',').map(s=>s.trim()).filter(Boolean) : [])
-    })).filter(cm => cm.name);
-  } catch(e){
-    console.error('Erreur chargement équipe:', e);
-    return [{ name: 'Responsable', role: 'admin', clients: 'ALL' }];
-  }
-}
-
-// Sauvegarder les profils CM dans le Sheets
-async function saveTeamToSheets(team){
-  try {
-    // Vider d'abord les lignes existantes
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent("Equipe!A4:C50")}:clear`,
-      { method: 'POST', headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' } }
-    );
-    // Réécrire
-    const values = team.map(cm => [
-      cm.name,
-      cm.role || 'cm',
-      cm.clients === 'ALL' ? 'ALL' : (Array.isArray(cm.clients) ? cm.clients.join(', ') : '')
-    ]);
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent("Equipe!A4")}?valueInputOption=RAW`,
-      {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values })
-      }
-    );
-  } catch(e){ toast('Erreur sauvegarde équipe : ' + e.message, true); }
-}
-
-// Filtrer les clients selon le profil CM actif
-function getVisibleClients(){
-  const cm = state.currentCM;
-  if(!cm || cm.clients === 'ALL') return state.clients;
-  return state.clients.filter(c => cm.clients.includes(c.name));
-}
-
-// Afficher le popup de sélection de profil
-async function showProfilePicker(){
-  const team = await loadTeamFromSheets();
-  if(!team.length){ initApp(); return; }
-
-  // Si un seul CM → le sélectionner directement
-  if(team.length === 1){ selectCM(team[0]); return; }
-
-  // Créer le popup
-  let existing = document.getElementById('cm-picker');
-  if(existing) existing.remove();
-
-  const picker = document.createElement('div');
-  picker.id = 'cm-picker';
-  picker.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center`;
-  picker.innerHTML = `
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:32px;width:340px;display:flex;flex-direction:column;gap:16px">
-      <div style="font-family:'Montserrat',sans-serif;font-size:16px;font-weight:700;color:var(--txt)">Qui êtes-vous ?</div>
-      <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt2)">Sélectionnez votre profil pour accéder à vos clients.</div>
-      <div style="display:flex;flex-direction:column;gap:8px" id="cm-list">
-        ${team.map(cm => `
-          <button onclick="selectCM(${JSON.stringify(cm).replace(/"/g,'&quot;')})" style="
-            padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;
-            font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;color:var(--txt);
-            cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;
-            transition:border-color .15s
-          " onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--border)'">
-            <div style="width:32px;height:32px;border-radius:8px;background:var(--brand-l);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--brand);flex-shrink:0">
-              ${cm.name.slice(0,2).toUpperCase()}
-            </div>
-            <div>
-              <div>${cm.name}</div>
-              <div style="font-size:11px;color:var(--txt2)">${cm.clients === 'ALL' ? 'Tous les clients' : (Array.isArray(cm.clients) ? cm.clients.length + ' client(s)' : '0 client(s)')}</div>
-            </div>
-          </button>
-        `).join('')}
-      </div>
-    </div>`;
-  document.body.appendChild(picker);
-}
-
-function selectCM(cm){
-  state.currentCM = cm;
-  localStorage.setItem('arjcom-cm', JSON.stringify(cm));
-  const picker = document.getElementById('cm-picker');
-  if(picker) picker.remove();
-  // Mettre à jour le badge
-  document.getElementById('user-name').textContent = cm.name;
-  document.getElementById('user-email').textContent = cm.role === 'admin' ? 'Responsable' : 'CM · SMO';
-  initApp();
-}
-
-// Déconnexion CM
-function logoutCM(){
-  state.currentCM = null;
-  localStorage.removeItem('arjcom-cm');
-  showProfilePicker();
-}
-
-// Rendu de la section Equipe dans Paramètres
-async function renderTeamSettings(){
-  const el = document.getElementById('team-settings');
-  if(!el) return;
-  el.innerHTML = '<div style="font-size:11px;color:var(--txt2)">Chargement...</div>';
-  const team = await loadTeamFromSheets();
-  window._teamCache = team;
-
-  el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-      ${team.map((cm,i) => `
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px">
-          <div style="width:32px;height:32px;border-radius:8px;background:var(--brand-l);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--brand);flex-shrink:0">
-            ${cm.name.slice(0,2).toUpperCase()}
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:var(--txt)">${cm.name}</div>
-            <div style="font-size:11px;color:var(--txt2)">${cm.role==='admin' ? 'Tous les clients' : (Array.isArray(cm.clients) ? cm.clients.length + ' client(s) assigné(s)' : '0 client(s)')}</div>
-          </div>
-          ${cm.role !== 'admin' ? `
-            <div style="position:relative">
-              <button onclick="toggleCMDropdown(${i})" style="padding:4px 10px;height:28px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--txt);cursor:pointer;font-family:'DM Sans',sans-serif">
-                Clients ▾
-              </button>
-              <div id="cm-dd-${i}" style="display:none;position:absolute;right:0;top:32px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;width:220px;z-index:200;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.3)">
-                ${state.clients.map(c => `
-                  <label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--txt)" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" ${Array.isArray(cm.clients)&&cm.clients.includes(c.name)?'checked':''} onchange="toggleClientForCM(${i},'${c.name.replace(/'/g,"\'").replace(/"/g,'\"')}',this.checked)" style="accent-color:var(--brand);flex-shrink:0">
-                    <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name}</span>
-                  </label>
-                `).join('')}
-              </div>
-            </div>
-            <button onclick="removeCM(${i})" style="background:none;border:none;cursor:pointer;color:var(--txt3);padding:4px;flex-shrink:0" title="Supprimer">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg>
-            </button>
-          ` : ''}
-        </div>
-      `).join('')}
-    </div>
-    <div style="display:flex;gap:8px">
-      <input class="inp" id="new-cm-inp" type="text" placeholder="Prénom du CM" style="flex:1;height:36px">
-      <button class="btn-p" style="height:36px;padding:0 14px;white-space:nowrap" onclick="addCM()">+ Ajouter</button>
-    </div>`;
-
-  // Fermer les dropdowns au clic extérieur
-  document.addEventListener('click', function closeDDs(e){
-    if(!e.target.closest('[id^="cm-dd-"]') && !e.target.closest('button[onclick^="toggleCMDropdown"]')){
-      document.querySelectorAll('[id^="cm-dd-"]').forEach(d=>d.style.display='none');
-    }
-  }, {once:false, capture:false});
-}
-
-function toggleCMDropdown(idx){
-  const dd = document.getElementById(`cm-dd-${idx}`);
-  if(!dd) return;
-  const isOpen = dd.style.display !== 'none';
-  // Fermer tous les autres
-  document.querySelectorAll('[id^="cm-dd-"]').forEach(d=>d.style.display='none');
-  dd.style.display = isOpen ? 'none' : 'block';
-}
 
 
-async function addCM(){
-  const name = document.getElementById('new-cm-inp').value.trim();
-  if(!name){ toast('Saisissez un prénom', true); return; }
-  const team = window._teamCache || await loadTeamFromSheets();
-  if(team.find(cm=>cm.name.toLowerCase()===name.toLowerCase())){ toast('Ce CM existe déjà', true); return; }
-  team.push({ name, role: 'cm', clients: [] });
-  await saveTeamToSheets(team);
-  document.getElementById('new-cm-inp').value = '';
-  toast(`Profil "${name}" créé`);
-  renderTeamSettings();
-}
 
-async function removeCM(idx){
-  const team = window._teamCache || await loadTeamFromSheets();
-  const cm = team[idx];
-  if(!cm || cm.role === 'admin') return;
-  if(!confirm(`Supprimer le profil "${cm.name}" ?`)) return;
-  team.splice(idx, 1);
-  await saveTeamToSheets(team);
-  toast(`Profil "${cm.name}" supprimé`);
-  renderTeamSettings();
-}
 
-async function toggleClientForCM(cmIdx, clientName, checked){
-  const team = window._teamCache || await loadTeamFromSheets();
-  const cm = team[cmIdx];
-  if(!cm || cm.role === 'admin') return;
-  if(!Array.isArray(cm.clients)) cm.clients = [];
-  if(checked && !cm.clients.includes(clientName)) cm.clients.push(clientName);
-  else if(!checked) cm.clients = cm.clients.filter(c=>c!==clientName);
-  window._teamCache = team;
-  await saveTeamToSheets(team);
-}
+
+
+
+
+
+
 
 // ── Export CSV ──
 function exportCSV(p){
@@ -2522,14 +2374,6 @@ async function initApp(){
   if(isTokenValid()){
     await loadClientsFromSheets();
     renderSheetsStatus();
-    // Si CM déjà sélectionné, filtrer directement
-    if(state.currentCM){
-      renderSidebarClients();
-      const visible = getVisibleClients();
-      if(visible.length) selectClient(visible[0].id);
-    } else {
-      await showProfilePicker();
-    }
   } else {
     renderSidebarClients();
     renderGoogleCTA();
