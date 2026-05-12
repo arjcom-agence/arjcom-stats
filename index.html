@@ -325,7 +325,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
           <div class="card"><div class="ch"><span class="ct">Taux d'engagement</span><span class="cs">6 derniers mois</span></div><div class="bars" id="be"></div></div>
         </div>
         <div class="card">
-          <div class="ch"><span class="ct" id="hist-title">Historique Facebook — 2026</span><button class="btn-sm" onclick="exportCSV('fb')">Exporter CSV</button></div>
+          <div class="ch"><span class="ct" id="hist-title">Historique Facebook — 2026</span><button class="btn-sm" id="export-csv-btn" onclick="exportCSV(state.currentPlatform)">Exporter CSV</button></div>
           <div style="overflow-x:auto">
             <table class="ht">
               <thead><tr><th>Mois</th><th>Posts</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Clics</th><th>Taux</th></tr></thead>
@@ -343,15 +343,7 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
             <div style="font-family:'Montserrat',sans-serif;font-size:14px;font-weight:600;color:var(--txt)" id="import-client-title">Sélectionnez un client</div>
             <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--txt2);margin-top:2px">Glissez vos exports CSV Meta puis envoyez vers Google Sheets</div>
           </div>
-          <div style="margin-left:auto">
-            <select class="inp" id="import-month-sel" style="width:160px;height:36px">
-              <option value="">— Mois —</option>
-              <option>Janvier 2026</option><option>Février 2026</option><option selected>Mars 2026</option>
-              <option>Avril 2026</option><option>Mai 2026</option><option>Juin 2026</option>
-              <option>Juillet 2026</option><option>Août 2026</option><option>Septembre 2026</option>
-              <option>Octobre 2026</option><option>Novembre 2026</option><option>Décembre 2026</option>
-            </select>
-          </div>
+
         </div>
 
         <div class="import-grid" id="import-grid">
@@ -402,6 +394,15 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
               <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Vues publications</div><input class="inp-sm" type="number" id="tk-vues-pub" placeholder="0"></div>
               <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Vues profil</div><input class="inp-sm" type="number" id="tk-vues-profil" placeholder="0"></div>
               <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Engagement</div><input class="inp-sm" type="number" id="tk-engagement" placeholder="0"></div>
+            </div>
+            <div><div style="font-size:11px;color:var(--txt2);margin-bottom:3px">Mois concerné</div>
+              <select class="inp" id="tk-month-sel" style="height:34px;width:100%">
+                <option value="">— Sélectionner —</option>
+                <option>Janvier 2026</option><option>Février 2026</option><option>Mars 2026</option>
+                <option>Avril 2026</option><option>Mai 2026</option><option>Juin 2026</option>
+                <option>Juillet 2026</option><option>Août 2026</option><option>Septembre 2026</option>
+                <option>Octobre 2026</option><option>Novembre 2026</option><option>Décembre 2026</option>
+              </select>
             </div>
             <button class="btn-p" style="height:34px;justify-content:center;font-size:12px" onclick="validateTK()">Valider les stats TikTok</button>
           </div>
@@ -720,7 +721,8 @@ function switchPlatform(p, el){
   state.currentPlatform = p;
   document.querySelectorAll('.pt').forEach(t=>t.className='pt');
   el.className = 'pt ' + p;
-  document.getElementById('hist-title').textContent = `Historique ${p==='fb'?'Facebook':'Instagram'} — 2026`;
+  const platName = p==='fb'?'Facebook':p==='ig'?'Instagram':p==='lk'?'LinkedIn':'TikTok';
+  document.getElementById('hist-title').textContent = `Historique ${platName} — ${new Date().getFullYear()}`;
   renderDashboard();
 }
 
@@ -799,7 +801,7 @@ function renderHistTableFB(rows){
   if(tkTab) tkTab.style.display = '';
   const tbody = document.getElementById('hist-body-fb');
   const titleEl = document.getElementById('hist-title');
-  if(titleEl) titleEl.textContent = (p==='fb'?'Historique Facebook':'Historique Instagram')+' — 2026';
+  if(titleEl) titleEl.textContent = (p==='fb'?'Historique Facebook':p==='ig'?'Historique Instagram':p==='lk'?'Historique LinkedIn':'Historique TikTok')+` — ${new Date().getFullYear()}`;
   const thead = tbody.closest('table').querySelector('thead tr');
   if(p==='ig'){
     thead.innerHTML='<th>Mois</th><th>Publications</th><th>Réels</th><th>Abonnés</th><th>Couverture</th><th>Impressions</th><th>Engagement</th><th>Taux</th>';
@@ -878,7 +880,7 @@ async function readAndParse(f, p){
       if(p==='fb') state.fbData=data; else if(p==='ig') state.igData=data; else state.lkData=data;
       showPreviewMulti(p, data);
     }
-  } catch(e){ toast('Erreur de lecture du fichier', true); console.error(e); }
+  } catch(e){ toast('Erreur de lecture du fichier', true); }
 }
 
 function parseMetaCSV(raw){
@@ -976,7 +978,8 @@ function validateTK(){
   const engagement  = parseInt(document.getElementById('tk-engagement').value)   || 0;
   const taux        = vuesPub > 0 ? ((engagement/vuesPub)*100).toFixed(2).replace('.',',')+'%' : '0%';
 
-  const data = { communaute, publications, posts:publications, vuesPub, vuesProfil, engagement, taux, singleMonth: true };
+  const tkMonth = document.getElementById('tk-month-sel').value;
+  const data = { communaute, publications, posts:publications, vuesPub, vuesProfil, engagement, taux, singleMonth: true, key: tkMonth };
   state.tkData = data;
 
   // Fermer le formulaire et afficher la preview
@@ -1113,7 +1116,7 @@ function extractIG(raw){
 }
 function showPreview(p, data){
   const card=document.getElementById('preview-card'); card.style.display='';
-  const month=document.getElementById('import-month-sel').value||'Mois non sélectionné';
+  const month = data.key || (data.months && data.months.length ? `${data.months[0].key} → ${data.months[data.months.length-1].key}` : 'Mois détecté automatiquement');
   const c=getClient();
   document.getElementById('preview-title').textContent=`Données extraites — ${p==='fb'?'Facebook':p==='ig'?'Instagram':'LinkedIn'}`;
   document.getElementById('preview-sub').textContent=`${c?c.name:'Client'} · ${month} · ${data.posts} publications`;
@@ -1154,32 +1157,47 @@ function showPreviewMulti(p, data){
 
 async function sendToSheets(){
   const c=getClient(); if(!c){ toast('Sélectionnez un client',true); return; }
-  const monthSel = document.getElementById('import-month-sel').value;
-  // Pour les imports multi-mois, le mois n'est pas requis
-  const isMultiImport = (state.fbData && !state.fbData.singleMonth) || (state.igData && !state.igData.singleMonth) || (state.lkData && !state.lkData.singleMonth) || (state.tkData && !state.tkData.singleMonth);
-  const month = monthSel || (isMultiImport ? 'multi' : '');
-  if(!month && !isMultiImport){ toast('Sélectionnez un mois', true); return; }
   const abonnes=parseInt(document.getElementById('abonnes-input').value)||0;
 
-  // Détection doublons
+  // Détecter si au moins un fichier est chargé
+  if(!state.fbData && !state.igData && !state.lkData && !state.tkData){
+    toast('Aucun fichier importé', true); return;
+  }
+
+  // Pour TikTok saisie manuelle, vérifier qu'un mois est indiqué
+  const tkMonth = document.getElementById('tk-month-sel')?.value || '';
+  if(state.tkData && !tkMonth){ toast('Sélectionnez le mois pour TikTok', true); return; }
+  if(state.tkData) state.tkData.monthKey = tkMonth;
+
+  const isMultiImport = (state.fbData && !state.fbData.singleMonth) || (state.igData && !state.igData.singleMonth) || (state.lkData && !state.lkData.singleMonth);
+
+  // Détection doublons pour imports mois unique
   if(!isMultiImport){
-    const hasFB = state.fbData && (c.data.fb||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
-    const hasIG = state.igData && (c.data.ig||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
-    const hasLK = state.lkData && (c.data.lk||[]).some(r=>r.month&&r.month.toLowerCase()===month.toLowerCase());
-    if(hasFB||hasIG||hasLK){
-      const plats = [hasFB?'Facebook':null, hasIG?'Instagram':null, hasLK?'LinkedIn':null].filter(Boolean).join(', ');
-      if(!confirm(`Des données existent déjà pour ${month} (${plats}). Ecraser ?`)) return;
+    const getMonth = (d) => d?.singleMonth !== false ? d?.key || d?.months?.[0]?.key : null;
+    const months = [...new Set([
+      state.fbData ? getMonth(state.fbData) : null,
+      state.igData ? getMonth(state.igData) : null,
+      state.lkData ? getMonth(state.lkData) : null,
+    ].filter(Boolean))];
+    for(const month of months){
+      const hasFB = state.fbData && (c.data.fb||[]).some(r=>r.month?.toLowerCase()===month.toLowerCase());
+      const hasIG = state.igData && (c.data.ig||[]).some(r=>r.month?.toLowerCase()===month.toLowerCase());
+      const hasLK = state.lkData && (c.data.lk||[]).some(r=>r.month?.toLowerCase()===month.toLowerCase());
+      if(hasFB||hasIG||hasLK){
+        const plats=[hasFB?'Facebook':null,hasIG?'Instagram':null,hasLK?'LinkedIn':null].filter(Boolean).join(', ');
+        if(!confirm(`Des données existent déjà pour ${month} (${plats}). Ecraser ?`)) return;
+      }
     }
   }
 
-  // Construire la liste des imports — gère mono et multi-mois
-  const buildEntries = (platformData, p, defaultMonth, abonnesVal) => {
+  // Construire la liste des imports — mois toujours depuis les données
+  const buildEntries = (platformData, p, abonnesVal, forcedMonth) => {
     if(!platformData) return [];
     if(platformData.singleMonth !== false){
-      // Mois unique
-      return [{ p, month: defaultMonth, data: {...platformData, abonnes: abonnesVal} }];
+      const month = forcedMonth || platformData.key || '';
+      if(!month){ toast(`Mois non détecté pour ${p.toUpperCase()}`, true); return []; }
+      return [{ p, month, data: {...platformData, abonnes: abonnesVal} }];
     } else {
-      // Multi-mois — abonnés sur le dernier mois seulement
       return platformData.months.map((m, i) => ({
         p,
         month: m.key,
@@ -1189,10 +1207,10 @@ async function sendToSheets(){
   };
 
   const entries = [
-    ...buildEntries(state.fbData, 'fb', month, abonnes),
-    ...buildEntries(state.igData, 'ig', month, abonnes),
-    ...buildEntries(state.lkData, 'lk', month, abonnes),
-    ...buildEntries(state.tkData, 'tk', month, 0),
+    ...buildEntries(state.fbData, 'fb', abonnes),
+    ...buildEntries(state.igData, 'ig', abonnes),
+    ...buildEntries(state.lkData, 'lk', abonnes),
+    ...buildEntries(state.tkData, 'tk', 0, tkMonth),
   ];
 
   if(!entries.length){ toast('Aucun fichier importé', true); return; }
@@ -1248,6 +1266,7 @@ function resetImport(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   const tkForm=document.getElementById('tk-form'); if(tkForm) tkForm.style.display='none';
+  const tkMonthSel=document.getElementById('tk-month-sel'); if(tkMonthSel) tkMonthSel.value='';
   const tkFname=document.getElementById('tk-fname'); if(tkFname) tkFname.textContent='';
 }
 
@@ -1987,7 +2006,6 @@ async function updateAccueilSheet(){
     );
 
   } catch(e){
-    console.error('Erreur mise à jour Accueil:', e.message);
   }
 }
 
