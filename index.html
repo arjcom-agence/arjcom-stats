@@ -1799,7 +1799,8 @@ let tokenExpiry = parseInt(localStorage.getItem('arjcom-gtoken-expiry') || '0');
 function isTokenValid(){
   return googleAccessToken && Date.now() < tokenExpiry;
 }
-async function connectSheets(){accounts.oauth2.initTokenClient({
+async function connectSheets(){
+  const client = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: SCOPES,
     callback: async (resp) => {
