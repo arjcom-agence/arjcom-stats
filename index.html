@@ -2598,7 +2598,7 @@ async function writeToSheets(clientName, platform, data, month){
   }
 
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
     const res = await fetch(url, {
       method: 'PUT',
       headers: {
