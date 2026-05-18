@@ -567,13 +567,6 @@ html,body{height:100%;background:var(--bg-page);font-family:'DM Sans',sans-serif
           <!-- Colonne gauche : saisie + réponse -->
           <div class="avis-left">
 
-            <!-- Source + mode -->
-            <div class="card" style="padding:14px;gap:10px;display:flex;flex-direction:column">
-              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-  
-              </div>
-            </div>
-
             <!-- Saisie avis -->
             <div class="card" style="padding:14px;gap:10px;display:flex;flex-direction:column">
               <div style="display:flex;align-items:center;gap:10px">
@@ -2361,11 +2354,25 @@ async function ensureYearExists(sheetName, year){
   if(!sheet) return years;
   const sheetId = sheet.properties.sheetId;
 
-  // Insérer 17 lignes vides après la ligne 2 (après bandeau+spacer)
+  // Calculer la position d'insertion selon l'année
+  // Années triées décroissantes : la plus récente en haut
+  // Une année future (> max existant) s'insère EN HAUT (index 2)
+  // Une année passée (< min existant) s'insère EN BAS (après toutes les sections)
+  const maxYear = years.length > 0 ? Math.max(...years) : 0;
+  let insertIndex;
+  if(year > maxYear || years.length === 0){
+    // Année plus récente → insérer EN HAUT après bandeau+spacer
+    insertIndex = FIXED_ROWS;
+  } else {
+    // Année plus ancienne → insérer EN BAS après toutes les sections existantes
+    insertIndex = FIXED_ROWS + years.length * ROWS_PER_YEAR;
+  }
+
+  // Insérer ROWS_PER_YEAR lignes vides à la bonne position
   await sheetsRequest('POST', ':batchUpdate', {
     requests: [{
       insertDimension: {
-        range: { sheetId, dimension: 'ROWS', startIndex: 2, endIndex: 2 + ROWS_PER_YEAR },
+        range: { sheetId, dimension: 'ROWS', startIndex: insertIndex, endIndex: insertIndex + ROWS_PER_YEAR },
         inheritFromBefore: false
       }
     }]
@@ -2388,9 +2395,10 @@ async function ensureYearExists(sheetName, year){
   sectionValues.push(["Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel","","","","","","","","","Total annuel"]);
   sectionValues.push([]); // spacer
 
-  // Écrire les données (à partir de la ligne 3, 1-indexed)
+  // Écrire les données à la bonne position selon l'année
+  const writeRow = insertIndex + 1; // 1-indexed pour l'API
   await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+'!A3')}?valueInputOption=USER_ENTERED`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(safe+'!A'+writeRow)}?valueInputOption=USER_ENTERED`,
     {
       method: 'PUT',
       headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
@@ -2398,11 +2406,12 @@ async function ensureYearExists(sheetName, year){
     }
   );
 
-  // Appliquer le formatage sur la nouvelle section
-  await formatYearSection(sheetId, 2, year); // rowIndex 0-based = 2
+  // Appliquer le formatage sur la nouvelle section (rowIndex 0-based = insertIndex)
+  await formatYearSection(sheetId, insertIndex, year);
 
   // Invalider le cache et retourner les nouvelles années
   delete sheetYearsCache[sheetName];
+  // Trier décroissant : années récentes en premier (correspond à yearIdx dans getSheetRowForMonth)
   const newYears = [year, ...years].sort((a,b) => b-a);
   sheetYearsCache[sheetName] = newYears;
   toast(`Section ${year} créée automatiquement`);
